@@ -1,0 +1,118 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+/* =========================
+   ENUMS
+========================= */
+
+enum AuthProvider {
+  EMAIL
+  APPLE
+  GOOGLE
+}
+
+enum VerificationType {
+  EMAIL_VERIFY
+  PASSWORD_RESET
+}
+
+/* =========================
+   MODELS (Registration/Auth)
+========================= */
+
+model User {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // App identity
+  email       String   @unique
+  displayName String?
+  avatarUrl   String?
+  timeZone    String   @default("America/Chicago")
+
+  // Useful for onboarding preferences (optional; keep or drop)
+  reminderOn   Boolean @default(true)
+  reminderTime String? // "HH:mm"
+
+  // Relations
+  authIdentities     AuthIdentity[]
+  sessions           Session[]
+  verificationTokens VerificationToken[]
+
+  @@index([createdAt])
+}
+
+model AuthIdentity {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  userId String
+  user   User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  provider AuthProvider
+
+  // EMAIL: normalized email; APPLE/GOOGLE: provider "sub"
+  providerUserId String
+
+  // EMAIL only (null for Apple/Google)
+  passwordHash String?
+
+  // Optional: if you want to track verification per identity
+  emailVerifiedAt DateTime?
+
+  @@unique([provider, providerUserId])
+  @@index([userId])
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  userId String
+  user   User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Store only a hash of refresh token (never store raw token)
+  refreshTokenHash String @unique
+
+  // Access token is typically JWT and not stored; this supports rotation/revocation.
+  expiresAt DateTime
+  revokedAt DateTime?
+
+  // Optional but helpful security/audit fields
+  userAgent String?
+  ipAddress String?
+
+  @@index([userId, expiresAt])
+}
+
+model VerificationToken {
+  id        String           @id @default(cuid())
+  createdAt DateTime         @default(now())
+  expiresAt DateTime
+  usedAt    DateTime?
+
+  userId String
+  user   User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  type VerificationType
+
+  // Store only a hash of the token you email the user
+  tokenHash String @unique
+
+  @@index([userId, type, expiresAt])
+}
