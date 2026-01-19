@@ -1,0 +1,4 @@
+.env
+/generated/prisma
+config/
+node_modules/
