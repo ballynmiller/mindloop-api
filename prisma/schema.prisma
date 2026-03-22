@@ -39,6 +39,8 @@ model User {
 
   // App identity
   email       String   @unique
+  firstName   String?
+  lastName    String?
   displayName String?
   avatarUrl   String?
   timeZone    String   @default("America/Chicago")

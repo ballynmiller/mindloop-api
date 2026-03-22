@@ -5,6 +5,8 @@
 export interface UserResponse {
   id: string;
   email: string;
+  firstName: string | null;
+  lastName: string | null;
   displayName: string | null;
   createdAt: string;
 }
@@ -26,12 +28,16 @@ export interface ErrorResponse {
 export function createUserResponse(user: {
   id: string;
   email: string;
+  firstName: string | null;
+  lastName: string | null;
   displayName: string | null;
   createdAt: Date;
 }): UserResponse {
   return {
     id: user.id,
     email: user.email,
+    firstName: user.firstName,
+    lastName: user.lastName,
     displayName: user.displayName,
     createdAt: user.createdAt.toISOString(),
   };
@@ -44,6 +50,8 @@ export function createAuthSuccessResponse(
   user: {
     id: string;
     email: string;
+    firstName: string | null;
+    lastName: string | null;
     displayName: string | null;
     createdAt: Date;
   },

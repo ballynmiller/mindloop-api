@@ -21,6 +21,12 @@ export const registerBodySchema = {
       type: "string",
       minLength: 8,
     },
+    firstName: {
+      type: "string",
+    },
+    lastName: {
+      type: "string",
+    },
     displayName: {
       type: "string",
     },
@@ -48,6 +54,8 @@ export const userSchema = {
   properties: {
     id: { type: "string" },
     email: { type: "string" },
+    firstName: { type: "string" },
+    lastName: { type: "string" },
     displayName: { type: "string" },
     createdAt: { type: "string" },
   },

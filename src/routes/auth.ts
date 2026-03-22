@@ -24,13 +24,15 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
     Body: {
       email: string;
       password: string;
+      firstName?: string;
+      lastName?: string;
       displayName?: string;
     };
   }>(
     "/register",
     { schema: registerSchema },
     async (request, reply) => {
-      const { email, password, displayName } = request.body;
+      const { email, password, firstName, lastName, displayName } = request.body;
 
       const normalizedEmail = normalizeEmail(email);
 
@@ -53,12 +55,16 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
         const user = await tx.user.create({
           data: {
             email: normalizedEmail,
+            firstName: firstName?.trim() || null,
+            lastName: lastName?.trim() || null,
             displayName: displayName || null,
           },
           // Only select fields we need (best practice: avoid overfetching)
           select: {
             id: true,
             email: true,
+            firstName: true,
+            lastName: true,
             displayName: true,
             createdAt: true,
           },
@@ -116,6 +122,8 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
         select: {
           id: true,
           email: true,
+          firstName: true,
+          lastName: true,
           displayName: true,
           createdAt: true,
         },
