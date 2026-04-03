@@ -3,6 +3,7 @@ import { PrismaClient, Prisma } from "../../generated/prisma/client.js";
 import { Pool } from "pg";
 import { PrismaPg } from "@prisma/adapter-pg";
 import fp from "fastify-plugin";
+import { normalizePgConnectionString } from "../utils/pgConnectionString.js";
 
 // Extend FastifyInstance to include prisma
 declare module "fastify" {
@@ -13,8 +14,11 @@ declare module "fastify" {
 
 const prismaPlugin: FastifyPluginAsync = async (fastify) => {
   // Create PostgreSQL connection pool
+  const databaseUrl = process.env.DATABASE_URL;
   const pool = new Pool({
-    connectionString: process.env.DATABASE_URL,
+    connectionString: databaseUrl
+      ? normalizePgConnectionString(databaseUrl)
+      : undefined,
   });
 
   // Create Prisma adapter for PostgreSQL

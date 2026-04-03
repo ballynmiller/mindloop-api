@@ -11,6 +11,7 @@
     "prisma:generate": "prisma generate",
     "prisma:studio": "prisma studio",
     "prisma:migrate:reset": "prisma migrate reset",
+    "prisma:seed": "prisma db seed",
     "dev": "tsx src/app.ts",
     "postinstall": "pnpm rebuild bcrypt"
   },

@@ -28,6 +28,19 @@ enum VerificationType {
   PASSWORD_RESET
 }
 
+enum TagSource {
+  EDITORIAL
+  IMPORTED
+  INFERRED
+  USER_CONFIRMED
+}
+
+enum ImageSource {
+  EDITORIAL
+  OWNER
+  USER
+}
+
 /* =========================
    MODELS (Registration/Auth)
 ========================= */
@@ -49,10 +62,17 @@ model User {
   reminderOn   Boolean @default(true)
   reminderTime String? // "HH:mm"
 
+  // Location / discovery (optional)
+  city      String?
+  state     String?
+  latitude  Float?
+  longitude Float?
+
   // Relations
   authIdentities     AuthIdentity[]
   sessions           Session[]
   verificationTokens VerificationToken[]
+  preferredTags      UserPreferredTag[]
 
   @@index([createdAt])
 }
@@ -117,4 +137,133 @@ model VerificationToken {
   tokenHash String @unique
 
   @@index([userId, type, expiresAt])
+}
+
+/* =========================
+   MODELS (Coffee shops & tags)
+========================= */
+
+model CoffeeShop {
+  id            String   @id @default(cuid())
+  name          String
+  slug          String   @unique
+  description   String?
+  addressLine1  String?
+  addressLine2  String?
+  city          String
+  state         String
+  postalCode    String?
+  country       String   @default("US")
+
+  latitude   Float?
+  longitude  Float?
+  phone      String?
+  websiteUrl String?
+  googlePlaceId String? @unique
+
+  // Weekly hours JSON for MVP (see plan / product docs for shape).
+  hours Json?
+
+  isActive Boolean @default(true)
+
+  tags   CoffeeShopTag[]
+  images CoffeeShopImage[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([city, state])
+  @@index([latitude, longitude])
+}
+
+model CoffeeShopImage {
+  id           String      @id @default(cuid())
+  coffeeShopId String
+  url          String
+  altText      String?
+  sortOrder    Int         @default(0)
+  source       ImageSource @default(EDITORIAL)
+
+  coffeeShop CoffeeShop @relation(fields: [coffeeShopId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([coffeeShopId, sortOrder])
+}
+
+model TagCategory {
+  id          String  @id @default(cuid())
+  name        String  @unique
+  slug        String  @unique
+  description String?
+  sortOrder   Int     @default(0)
+
+  tags Tag[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Tag {
+  id         String @id @default(cuid())
+  categoryId String
+
+  name        String
+  slug        String  @unique
+  description String?
+  icon        String?
+  sortOrder   Int     @default(0)
+
+  isActive     Boolean @default(true)
+  isFilterable Boolean @default(true)
+  isPreference Boolean @default(true)
+
+  category   TagCategory       @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  coffeeShops CoffeeShopTag[]
+  userTags    UserPreferredTag[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([categoryId, name])
+  @@index([categoryId, sortOrder])
+}
+
+model CoffeeShopTag {
+  id           String    @id @default(cuid())
+  coffeeShopId String
+  tagId        String
+
+  source     TagSource @default(EDITORIAL)
+  confidence Int? // optional 1–100 for inferred/imported tags
+  notes      String?
+
+  coffeeShop CoffeeShop @relation(fields: [coffeeShopId], references: [id], onDelete: Cascade)
+  tag        Tag        @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([coffeeShopId, tagId])
+  @@index([coffeeShopId])
+  @@index([tagId])
+}
+
+model UserPreferredTag {
+  id     String @id @default(cuid())
+  userId String
+  tagId  String
+
+  weight Int @default(1)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tag  Tag  @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, tagId])
+  @@index([userId])
+  @@index([tagId])
 }
