@@ -2,3 +2,4 @@
 /generated/prisma
 config/
 node_modules/
+dist/

@@ -14,6 +14,10 @@
     "prisma:seed": "prisma db seed",
     "backfill:google-images": "tsx scripts/backfill-google-shop-images.ts",
     "dev": "tsx src/app.ts",
+    "prebuild": "prisma generate",
+    "build": "tsc -p tsconfig.build.json",
+    "start": "node dist/src/app.js",
+    "healthcheck": "curl -sf http://127.0.0.1:${PORT:-3000}/health > /dev/null && curl -sf http://127.0.0.1:${PORT:-3000}/health/ready > /dev/null && echo OK",
     "postinstall": "pnpm rebuild bcrypt"
   },
   "keywords": [],

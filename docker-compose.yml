@@ -1,0 +1,37 @@
+services:
+  # Optional: `docker compose --profile local-db up` when you want Postgres in Compose.
+  # For Prisma Postgres / Accelerate, omit the profile and keep DATABASE_URL + DIRECT_URL in `.env`.
+  db:
+    profiles: ["local-db"]
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: mindloop
+      POSTGRES_PASSWORD: mindloop
+      POSTGRES_DB: mindloop
+    ports:
+      - "5432:5432"
+    volumes:
+      - mindloop_pg:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U mindloop -d mindloop"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  api:
+    build:
+      context: .
+      args:
+        NODE_IMAGE: ${DOCKER_NODE_IMAGE:-node:22-bookworm-slim}
+    ports:
+      - "3000:3000"
+    # Loads DATABASE_URL, DIRECT_URL (required for pg + Prisma Accelerate), and other secrets from disk.
+    env_file:
+      - .env
+    environment:
+      NODE_ENV: production
+      JWT_SECRET: ${JWT_SECRET:-dev-change-me-in-production}
+    restart: on-failure
+
+volumes:
+  mindloop_pg:
