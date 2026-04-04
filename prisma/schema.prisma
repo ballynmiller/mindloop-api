@@ -164,6 +164,23 @@ model CoffeeShop {
   // Weekly hours JSON for MVP (see plan / product docs for shape).
   hours Json?
 
+  /// 1–5 when set: weak → strong Wi‑Fi (distinct from boolean "wifi" tag).
+  wifiQuality        Int?
+  /// 1 loud → 5 quiet when set.
+  noiseLevel         Int?
+  /// 1–5 outlet availability.
+  outletAvailability Int?
+  /// 1–5 seating comfort.
+  seatingComfort     Int?
+  /// 1–5 parking convenience.
+  parkingQuality     Int?
+
+  /// Aggregate rating for display (e.g. 4.8); optional.
+  ratingAvg   Float?
+  reviewCount Int?
+  /// 1–4 ($–$$$$) when set.
+  priceLevel  Int?
+
   isActive Boolean @default(true)
 
   tags   CoffeeShopTag[]

@@ -59,3 +59,16 @@ export function getRefreshTokenExpiry(): Date {
   expiry.setDate(expiry.getDate() + 7); // 7 days
   return expiry;
 }
+
+/**
+ * Validate access JWT; returns userId or null (expired / invalid).
+ */
+export function verifyAccessToken(token: string): { userId: string } | null {
+  try {
+    const payload = jwt.verify(token, JWT_SECRET) as { userId?: string; type?: string };
+    if (payload.type !== "access" || typeof payload.userId !== "string") return null;
+    return { userId: payload.userId };
+  } catch {
+    return null;
+  }
+}

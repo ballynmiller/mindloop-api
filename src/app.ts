@@ -3,6 +3,7 @@ import Fastify, { FastifyError, FastifyRequest, FastifyReply } from "fastify";
 import prismaPlugin from "./plugins/prisma.js";
 import authRoutes from "./routes/auth.js";
 import healthRoutes from "./routes/health.js";
+import recommendationsRoutes from "./routes/recommendations.js";
 import { userSchema, errorResponseSchema } from "./schemas/auth.js";
 import { AppError, InternalServerError } from "./utils/errors.js";
 import { createErrorResponse } from "./utils/response.js";
@@ -23,6 +24,7 @@ fastify.register(prismaPlugin);
 
 // Register routes
 fastify.register(authRoutes, { prefix: "/api/auth" });
+fastify.register(recommendationsRoutes, { prefix: "/api" });
 fastify.register(healthRoutes);
 
 // Centralized error handler

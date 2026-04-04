@@ -12,13 +12,30 @@ declare module "fastify" {
   }
 }
 
+/**
+ * `pg` + `PrismaPg` need a direct PostgreSQL URL. `DATABASE_URL` is often
+ * `prisma+postgres://...` (Accelerate), which the driver cannot use — connects
+ * will stall or fail. Prefer `DIRECT_URL` (same pattern as `prisma/seed.ts`).
+ */
+function resolveDriverConnectionString(): string {
+  const direct = process.env.DIRECT_URL?.trim();
+  const database = process.env.DATABASE_URL?.trim();
+  const raw = direct || database;
+  if (!raw) {
+    throw new Error("Missing DATABASE_URL (or DIRECT_URL for the pg driver when using Accelerate).");
+  }
+  if (!direct && database?.startsWith("prisma+")) {
+    throw new Error(
+      "DATABASE_URL uses Prisma Accelerate (prisma+postgres). Set DIRECT_URL to a postgres:// connection string for the server `pg` pool.",
+    );
+  }
+  return normalizePgConnectionString(raw);
+}
+
 const prismaPlugin: FastifyPluginAsync = async (fastify) => {
-  // Create PostgreSQL connection pool
-  const databaseUrl = process.env.DATABASE_URL;
   const pool = new Pool({
-    connectionString: databaseUrl
-      ? normalizePgConnectionString(databaseUrl)
-      : undefined,
+    connectionString: resolveDriverConnectionString(),
+    connectionTimeoutMillis: 30_000,
   });
 
   // Create Prisma adapter for PostgreSQL

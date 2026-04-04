@@ -12,6 +12,7 @@
     "prisma:studio": "prisma studio",
     "prisma:migrate:reset": "prisma migrate reset",
     "prisma:seed": "prisma db seed",
+    "backfill:google-images": "tsx scripts/backfill-google-shop-images.ts",
     "dev": "tsx src/app.ts",
     "postinstall": "pnpm rebuild bcrypt"
   },
