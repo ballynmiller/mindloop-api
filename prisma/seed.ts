@@ -3,6 +3,7 @@ import { PrismaClient } from "../generated/prisma/client.js";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { Pool } from "pg";
 import { normalizePgConnectionString } from "../src/utils/pgConnectionString.js";
+import { COFFEE_SHOP_PLACEHOLDER_IMAGE_URL } from "../src/utils/googlePlacesPhoto.js";
 
 const rawConnectionString =
   process.env.DIRECT_URL ?? process.env.DATABASE_URL;
@@ -19,8 +20,10 @@ const pool = new Pool({
 const prisma = new PrismaClient({ adapter: new PrismaPg(pool) });
 
 /**
- * Maple Grove, MN — real venues only. Addresses/phones from operator & public listings;
- * coordinates from OpenStreetMap Nominatim (approx. building placement). Hours: verify at source.
+ * Coffee-focused venues near 11550 Arbor Lakes Pkwy N, Maple Grove, MN (~15 min drive).
+ * Primarily coffee / espresso and bakery or cafe snacks — not full-service restaurants or grocery stores.
+ * **No duplicate chains** (one Caribou, one Starbucks, one Dunkin', etc.); multiple distinct local names are fine.
+ * Addresses / phones from public listings; coordinates from OpenStreetMap Nominatim where it resolves.
  */
 
 type WeekHours = {
@@ -33,17 +36,7 @@ type WeekHours = {
   sunday: { open: string; close: string };
 };
 
-const caribouBassLakeHours: WeekHours = {
-  monday: { open: "06:00", close: "19:00" },
-  tuesday: { open: "06:00", close: "19:00" },
-  wednesday: { open: "06:00", close: "19:00" },
-  thursday: { open: "06:00", close: "19:00" },
-  friday: { open: "06:00", close: "19:00" },
-  saturday: { open: "06:30", close: "18:00" },
-  sunday: { open: "06:30", close: "18:00" },
-};
-
-const caribouStandardHours: WeekHours = {
+const caribouTheGroveHours: WeekHours = {
   monday: { open: "06:00", close: "20:00" },
   tuesday: { open: "06:00", close: "20:00" },
   wednesday: { open: "06:00", close: "20:00" },
@@ -51,16 +44,6 @@ const caribouStandardHours: WeekHours = {
   friday: { open: "06:00", close: "20:00" },
   saturday: { open: "06:30", close: "20:00" },
   sunday: { open: "06:30", close: "19:00" },
-};
-
-const caribouLundsHours: WeekHours = {
-  monday: { open: "08:00", close: "20:00" },
-  tuesday: { open: "08:00", close: "20:00" },
-  wednesday: { open: "08:00", close: "20:00" },
-  thursday: { open: "08:00", close: "20:00" },
-  friday: { open: "08:00", close: "20:00" },
-  saturday: { open: "08:00", close: "20:00" },
-  sunday: { open: "08:00", close: "18:00" },
 };
 
 const starbucksElmCreekHours: WeekHours = {
@@ -73,16 +56,6 @@ const starbucksElmCreekHours: WeekHours = {
   sunday: { open: "05:00", close: "21:00" },
 };
 
-const starbucksWedgewoodHours: WeekHours = {
-  monday: { open: "04:30", close: "20:00" },
-  tuesday: { open: "04:30", close: "20:00" },
-  wednesday: { open: "04:30", close: "20:00" },
-  thursday: { open: "04:30", close: "20:00" },
-  friday: { open: "04:30", close: "20:00" },
-  saturday: { open: "05:30", close: "21:00" },
-  sunday: { open: "05:30", close: "21:00" },
-};
-
 const kingdomCoffeeHours: WeekHours = {
   monday: { open: "06:00", close: "20:00" },
   tuesday: { open: "06:00", close: "20:00" },
@@ -91,16 +64,6 @@ const kingdomCoffeeHours: WeekHours = {
   friday: { open: "06:00", close: "20:00" },
   saturday: { open: "06:00", close: "20:00" },
   sunday: { open: "07:00", close: "15:00" },
-};
-
-const wholeFoodsHours: WeekHours = {
-  monday: { open: "08:00", close: "21:00" },
-  tuesday: { open: "08:00", close: "21:00" },
-  wednesday: { open: "08:00", close: "21:00" },
-  thursday: { open: "08:00", close: "21:00" },
-  friday: { open: "08:00", close: "21:00" },
-  saturday: { open: "08:00", close: "21:00" },
-  sunday: { open: "08:00", close: "21:00" },
 };
 
 const dunkinTypicalHours: WeekHours = {
@@ -123,16 +86,6 @@ const dailyDoseHours: WeekHours = {
   sunday: { open: "08:00", close: "14:00" },
 };
 
-const cafeZupasHours: WeekHours = {
-  monday: { open: "10:30", close: "21:00" },
-  tuesday: { open: "10:30", close: "21:00" },
-  wednesday: { open: "10:30", close: "21:00" },
-  thursday: { open: "10:30", close: "21:00" },
-  friday: { open: "10:30", close: "21:00" },
-  saturday: { open: "10:30", close: "21:00" },
-  sunday: { open: "10:30", close: "21:00" },
-};
-
 const brueggersHours: WeekHours = {
   monday: { open: "05:30", close: "17:00" },
   tuesday: { open: "05:30", close: "17:00" },
@@ -141,6 +94,46 @@ const brueggersHours: WeekHours = {
   friday: { open: "05:30", close: "17:00" },
   saturday: { open: "05:30", close: "17:00" },
   sunday: { open: "05:30", close: "17:00" },
+};
+
+const beanCoHours: WeekHours = {
+  monday: { open: "07:00", close: "18:00" },
+  tuesday: { open: "07:00", close: "18:00" },
+  wednesday: { open: "07:00", close: "18:00" },
+  thursday: { open: "07:00", close: "18:00" },
+  friday: { open: "07:00", close: "18:00" },
+  saturday: { open: "07:00", close: "19:00" },
+  sunday: { open: "08:00", close: "18:00" },
+};
+
+const greatHarvestGroveSquareHours: WeekHours = {
+  monday: { open: "06:00", close: "15:00" },
+  tuesday: { open: "06:00", close: "18:00" },
+  wednesday: { open: "06:00", close: "18:00" },
+  thursday: { open: "06:00", close: "18:00" },
+  friday: { open: "06:00", close: "18:00" },
+  saturday: { open: "06:00", close: "17:00" },
+  sunday: { open: "06:00", close: "15:00" },
+};
+
+const hinterlandRobinRdHours: WeekHours = {
+  monday: { open: "08:00", close: "17:00" },
+  tuesday: { open: "08:00", close: "17:00" },
+  wednesday: { open: "08:00", close: "17:00" },
+  thursday: { open: "08:00", close: "17:00" },
+  friday: { open: "08:00", close: "17:00" },
+  saturday: { open: "09:00", close: "15:00" },
+  sunday: { open: "10:00", close: "14:00" },
+};
+
+const uffdaGroveDrHours: WeekHours = {
+  monday: { open: "06:30", close: "18:00" },
+  tuesday: { open: "06:30", close: "18:00" },
+  wednesday: { open: "06:30", close: "18:00" },
+  thursday: { open: "06:30", close: "18:00" },
+  friday: { open: "06:30", close: "18:00" },
+  saturday: { open: "07:00", close: "17:00" },
+  sunday: { open: "07:00", close: "15:00" },
 };
 
 type SeedShop = {
@@ -168,7 +161,7 @@ type SeedShop = {
 };
 
 async function main() {
-  console.log("🌱 Seeding Maple Grove coffee shops...");
+  console.log("🌱 Seeding coffee shops (Maple Grove — coffee / cafe focused)...");
   if (process.env.GOOGLE_PLACES_API_KEY?.trim()) {
     console.log(
       "  (Skipping seed placeholder images — run: pnpm backfill:google-images)",
@@ -222,6 +215,7 @@ async function main() {
     tags[t.slug] = tag.id;
   }
 
+  // Keep Daily Dose + Kingdom Coffee as fixed local fixtures when rotating other chains.
   const shops: SeedShop[] = [
     {
       name: "Daily Dose Cafe and Espresso",
@@ -235,7 +229,7 @@ async function main() {
       hours: dailyDoseHours,
       phone: "+17636570919",
       websiteUrl: "https://dailydosemn.com/",
-      description: "Locally owned cafe; espresso, pastries, breakfast sandwiches. Main Maple Grove location.",
+      description: "Locally owned cafe; espresso, pastries, breakfast sandwiches.",
       tags: ["cozy", "wifi", "meet", "chill", "work", "natural-light"],
       wifiQuality: 4,
       noiseLevel: 3,
@@ -258,7 +252,7 @@ async function main() {
       hours: kingdomCoffeeHours,
       phone: "+17634243866",
       websiteUrl: "https://www.kingdomcoffeemn.com/",
-      description: "Specialty coffee roaster & cafe at Main St & Arbor Lakes Pkwy (former Dunn Bros site).",
+      description: "Specialty coffee roaster & cafe at Main St & Arbor Lakes (former Dunn Bros site).",
       tags: ["modern", "wifi", "work", "cozy", "meet", "calm"],
       wifiQuality: 4,
       noiseLevel: 4,
@@ -270,95 +264,44 @@ async function main() {
       priceLevel: 2,
     },
     {
-      name: "Caribou Coffee — Bass Lake Rd & Sycamore Ln",
-      slug: "caribou-bass-lake-rd",
+      name: "Bean Co Cafe",
+      slug: "bean-co-cafe-elm-creek-blvd-n",
       city: "Maple Grove",
       state: "MN",
-      addressLine1: "12850 Bass Lake Rd",
+      addressLine1: "7951 Elm Creek Blvd N Unit 2",
       postalCode: "55369",
-      latitude: 45.0650122,
-      longitude: -93.4421325,
-      hours: caribouBassLakeHours,
-      phone: "+17635531293",
-      websiteUrl: "https://locations.cariboucoffee.com/us/mn/maple-grove/12850-bass-lake-road",
-      tags: ["wifi", "quick-stop", "easy-parking", "work"],
+      latitude: 45.0945527,
+      longitude: -93.40514,
+      hours: beanCoHours,
+      phone: "+17632081331",
+      websiteUrl: "https://www.coffeeshopmaplegrove.com/",
+      description:
+        "Locally owned coffee shop; espresso, cold brew, crepes, and bakery items — not a full-service restaurant.",
+      tags: ["cozy", "wifi", "meet", "chill", "natural-light", "quick-stop"],
       wifiQuality: 4,
       noiseLevel: 3,
-      outletAvailability: 3,
-      ratingAvg: 4.3,
-      reviewCount: 890,
-      priceLevel: 2,
-    },
-    {
-      name: "Caribou Coffee — Dunkirk Square",
-      slug: "caribou-dunkirk-square",
-      city: "Maple Grove",
-      state: "MN",
-      addressLine1: "16393 County Rd 30",
-      postalCode: "55311",
-      latitude: 45.1253531,
-      longitude: -93.487465,
-      hours: caribouStandardHours,
-      websiteUrl: "https://locations.cariboucoffee.com/us/mn/maple-grove",
-      tags: ["wifi", "quick-stop", "easy-parking", "meet"],
-      wifiQuality: 4,
-      noiseLevel: 3,
-      ratingAvg: 4.2,
-      reviewCount: 650,
-      priceLevel: 2,
-    },
-    {
-      name: "Caribou Coffee — Lunds & Byerlys Maple Grove",
-      slug: "caribou-lunds-maple-grove",
-      city: "Maple Grove",
-      state: "MN",
-      addressLine1: "12880 Elm Creek Blvd N",
-      postalCode: "55369",
-      latitude: 45.0962704,
-      longitude: -93.4442798,
-      hours: caribouLundsHours,
-      websiteUrl: "https://locations.cariboucoffee.com/us/mn/maple-grove",
-      tags: ["wifi", "quick-stop", "bright"],
-      wifiQuality: 3,
-      noiseLevel: 3,
-      ratingAvg: 4.2,
-      reviewCount: 410,
+      ratingAvg: 4.5,
+      reviewCount: 180,
       priceLevel: 2,
     },
     {
       name: "Caribou Coffee — The Grove",
-      slug: "caribou-maple-grove-pkwy",
+      slug: "caribou-the-grove-maple-grove-pkwy",
       city: "Maple Grove",
       state: "MN",
       addressLine1: "9805 Maple Grove Pkwy",
       postalCode: "55369",
       latitude: 45.1320188,
       longitude: -93.4777291,
-      hours: caribouStandardHours,
-      websiteUrl: "https://locations.cariboucoffee.com/us/mn/maple-grove",
+      hours: caribouTheGroveHours,
+      phone: "+16124263391",
+      websiteUrl: "https://locations.cariboucoffee.com/us/mn/maple-grove/9805-maple-grove-parkway",
+      description: "Closest Caribou to Arbor Lakes Pkwy; drive-thru & indoor seating.",
       tags: ["wifi", "quick-stop", "easy-parking", "meet"],
       wifiQuality: 4,
       noiseLevel: 3,
       ratingAvg: 4.3,
       reviewCount: 720,
-      priceLevel: 2,
-    },
-    {
-      name: "Caribou Coffee — Weaver Lake Rd",
-      slug: "caribou-weaver-lake-rd",
-      city: "Maple Grove",
-      state: "MN",
-      addressLine1: "13250 Grove Dr",
-      postalCode: "55369",
-      latitude: 45.1038122,
-      longitude: -93.4489389,
-      hours: caribouStandardHours,
-      websiteUrl: "https://locations.cariboucoffee.com/us/mn/maple-grove",
-      tags: ["wifi", "quick-stop", "easy-parking"],
-      wifiQuality: 4,
-      noiseLevel: 3,
-      ratingAvg: 4.2,
-      reviewCount: 610,
       priceLevel: 2,
     },
     {
@@ -373,52 +316,13 @@ async function main() {
       hours: starbucksElmCreekHours,
       phone: "+17634650012",
       websiteUrl: "https://www.starbucks.com/store-locator",
-      description: "Arbor Lakes / Hemlock & Elm Creek Pkwy.",
+      description: "Arbor Lakes area; Hemlock & Elm Creek Pkwy.",
       tags: ["wifi", "work", "quick-stop", "meet"],
       wifiQuality: 4,
       noiseLevel: 3,
       outletAvailability: 3,
       ratingAvg: 4.3,
       reviewCount: 510,
-      priceLevel: 2,
-    },
-    {
-      name: "Starbucks — Wedgewood Ln N",
-      slug: "starbucks-wedgewood-ln",
-      city: "Maple Grove",
-      state: "MN",
-      addressLine1: "7979 Wedgewood Ln N",
-      postalCode: "55369",
-      latitude: 45.1009651,
-      longitude: -93.4499962,
-      hours: starbucksWedgewoodHours,
-      phone: "+17634206311",
-      websiteUrl: "https://www.starbucks.com/store-locator",
-      tags: ["wifi", "quick-stop", "meet"],
-      wifiQuality: 4,
-      noiseLevel: 3,
-      ratingAvg: 4.2,
-      reviewCount: 380,
-      priceLevel: 2,
-    },
-    {
-      name: "Cafe Zupas",
-      slug: "cafe-zupas-fountains",
-      city: "Maple Grove",
-      state: "MN",
-      addressLine1: "11669 Fountains Dr N",
-      postalCode: "55369",
-      latitude: 45.0942198,
-      longitude: -93.4274515,
-      hours: cafeZupasHours,
-      phone: "+16122525229",
-      websiteUrl: "https://www.cafezupas.com/",
-      description: "Fast-casual soups, salads, bowls; full espresso bar at Arbor Lakes Fountains.",
-      tags: ["bright", "quick-stop", "meet", "wifi", "modern"],
-      wifiQuality: 3,
-      noiseLevel: 2,
-      ratingAvg: 4.4,
-      reviewCount: 620,
       priceLevel: 2,
     },
     {
@@ -460,42 +364,65 @@ async function main() {
       priceLevel: 1,
     },
     {
-      name: "Dunkin'",
-      slug: "dunkin-zachary-lane-n",
+      name: "Great Harvest Bread Co.",
+      slug: "great-harvest-grove-dr-n",
       city: "Maple Grove",
       state: "MN",
-      addressLine1: "9595 Zachary Ln N",
-      postalCode: "55369",
-      latitude: 45.1287777,
-      longitude: -93.4230766,
-      hours: dunkinTypicalHours,
-      phone: "+17632738679",
-      websiteUrl: "https://locations.dunkindonuts.com/en/mn/maple-grove",
-      tags: ["quick-stop", "wifi", "easy-parking"],
+      addressLine1: "13714 Grove Dr N",
+      postalCode: "55311",
+      latitude: 45.104498,
+      longitude: -93.4543291,
+      hours: greatHarvestGroveSquareHours,
+      phone: "+17634161911",
+      websiteUrl: "https://maplegrovebread.com/",
+      description:
+        "Bakery cafe; coffee, sandwiches, and fresh bread — Grove Square. Franchise hours vary (often closed Monday); confirm before visiting.",
+      tags: ["cozy", "quick-stop", "wifi", "natural-light", "chill"],
       wifiQuality: 3,
-      noiseLevel: 2,
-      ratingAvg: 4.1,
+      noiseLevel: 3,
+      ratingAvg: 4.5,
       reviewCount: 210,
-      priceLevel: 1,
+      priceLevel: 2,
     },
     {
-      name: "Whole Foods Market — Allegro Coffee Bar",
-      slug: "allegro-whole-foods-elm-creek",
+      name: "Hinterland Coffee Co.",
+      slug: "hinterland-coffee-robin-rd-n",
       city: "Maple Grove",
       state: "MN",
-      addressLine1: "12201 Elm Creek Blvd N",
+      addressLine1: "12133 Robin Rd N",
       postalCode: "55369",
-      latitude: 45.0940647,
-      longitude: -93.439534,
-      hours: wholeFoodsHours,
-      phone: "+17634167300",
-      websiteUrl: "https://www.wholefoodsmarket.com/stores/maplegrove",
-      description: "In-store Allegro espresso bar at Whole Foods Maple Grove.",
-      tags: ["bright", "quick-stop", "wifi", "easy-parking"],
+      latitude: 45.0726531,
+      longitude: -93.4394816,
+      hours: hinterlandRobinRdHours,
+      phone: "+16122082889",
+      websiteUrl: "https://www.hinterlandmn.com/",
+      description: "Local roastery & retail; beans and espresso drinks.",
+      tags: ["modern", "calm", "wifi", "work", "meet"],
       wifiQuality: 3,
-      noiseLevel: 2,
-      ratingAvg: 4.2,
-      reviewCount: 150,
+      noiseLevel: 3,
+      outletAvailability: 3,
+      ratingAvg: 4.6,
+      reviewCount: 95,
+      priceLevel: 2,
+    },
+    {
+      name: "Uffda Donuts",
+      slug: "uffda-donuts-grove-dr-n",
+      city: "Maple Grove",
+      state: "MN",
+      addressLine1: "13716 Grove Dr N",
+      postalCode: "55311",
+      latitude: 45.1045337,
+      longitude: -93.4543927,
+      hours: uffdaGroveDrHours,
+      phone: "+17632024009",
+      websiteUrl: "https://uffdadonuts.com/",
+      description: "Family-owned donut shop with espresso, smoothies, and sandwiches — Grove Square (next to Great Harvest).",
+      tags: ["quick-stop", "cozy", "wifi", "chill"],
+      wifiQuality: 3,
+      noiseLevel: 3,
+      ratingAvg: 4.4,
+      reviewCount: 320,
       priceLevel: 2,
     },
   ];
@@ -515,8 +442,6 @@ async function main() {
     console.log(`   Removed ${purge.count} coffee shop row(s) not in Maple Grove seed list.`);
   }
 
-  const placeholder =
-    "https://images.unsplash.com/photo-1501339847302-ac426a4a7cbb?w=800&q=80";
   const seedPlaceholderImages = !process.env.GOOGLE_PLACES_API_KEY?.trim();
 
   for (const shop of shops) {
@@ -575,13 +500,13 @@ async function main() {
       if (existingImg) {
         await prisma.coffeeShopImage.update({
           where: { id: existingImg.id },
-          data: { url: placeholder },
+          data: { url: COFFEE_SHOP_PLACEHOLDER_IMAGE_URL },
         });
       } else {
         await prisma.coffeeShopImage.create({
           data: {
             coffeeShopId: created.id,
-            url: placeholder,
+            url: COFFEE_SHOP_PLACEHOLDER_IMAGE_URL,
             sortOrder: 0,
           },
         });
@@ -615,7 +540,7 @@ async function main() {
     data: { googlePlaceId: null },
   });
 
-  console.log(`✅ Seed complete (${shops.length} Maple Grove shops).`);
+  console.log(`✅ Seed complete (${shops.length} shops).`);
   console.log(
     "   Optional: pnpm backfill:google-images -- --replace-placeholders (with GOOGLE_PLACES_API_KEY)",
   );

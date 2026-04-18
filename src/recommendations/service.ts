@@ -12,14 +12,11 @@ import {
 import { pickBackups } from "./diversify.js";
 import { parseRecommendationMode, type RecommendationMode } from "./taxonomy.js";
 import { scoreShop, type ScoredShop, type ShopRow } from "./score.js";
+import { COFFEE_SHOP_PLACEHOLDER_IMAGE_URL } from "../utils/googlePlacesPhoto.js";
 
 const DEFAULT_RADIUS_M = 80_000;
 const MAX_RADIUS_M = 600_000;
 const DEFAULT_BACKUP_LIMIT = 5;
-
-/** When DB has no hero image yet (run `pnpm backfill:google-images`). */
-const FALLBACK_COFFEE_IMAGE_URL =
-  "https://images.unsplash.com/photo-1501339847302-ac426a4a7cbb?w=800&q=80";
 
 export type GetRecommendationsBody = {
   mode: string;
@@ -147,7 +144,7 @@ function toDto(
     closesAtLocal: s.openInfo.closesAtToday,
     summaryLine: buildSummaryLine(mode, s),
     tags: s.shop.tags.map((t) => ({ slug: t.tag.slug, name: t.tag.name })),
-    imageUrl: s.shop.heroImageUrl ?? FALLBACK_COFFEE_IMAGE_URL,
+    imageUrl: s.shop.heroImageUrl ?? COFFEE_SHOP_PLACEHOLDER_IMAGE_URL,
     reasons: buildReasons(mode, s, prefLabels),
     matchedPreferences: prefLabels,
     confidence: confidenceFromScore(s),

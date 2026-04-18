@@ -62,6 +62,9 @@ model User {
   reminderOn   Boolean @default(true)
   reminderTime String? // "HH:mm"
 
+  /// Set when the user saves tag onboarding (null = show onboarding).
+  onboardingCompletedAt DateTime?
+
   // Location / discovery (optional)
   city      String?
   state     String?

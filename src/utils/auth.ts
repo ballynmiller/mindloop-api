@@ -72,3 +72,16 @@ export function verifyAccessToken(token: string): { userId: string } | null {
     return null;
   }
 }
+
+/**
+ * Validate refresh JWT; returns userId or null (expired / invalid).
+ */
+export function verifyRefreshToken(token: string): { userId: string } | null {
+  try {
+    const payload = jwt.verify(token, JWT_SECRET) as { userId?: string; type?: string };
+    if (payload.type !== "refresh" || typeof payload.userId !== "string") return null;
+    return { userId: payload.userId };
+  } catch {
+    return null;
+  }
+}

@@ -47,6 +47,14 @@ export const loginBodySchema = {
   },
 } as const;
 
+export const refreshBodySchema = {
+  type: "object",
+  required: ["refreshToken"],
+  properties: {
+    refreshToken: { type: "string", minLength: 1 },
+  },
+} as const;
+
 // Response Schemas
 export const userSchema = {
   $id: schemas.user,
@@ -58,6 +66,7 @@ export const userSchema = {
     lastName: { type: "string" },
     displayName: { type: "string" },
     createdAt: { type: "string" },
+    onboardingCompletedAt: { type: ["string", "null"] },
   },
 } as const;
 
@@ -91,6 +100,15 @@ export const registerSchema = {
 
 export const loginSchema = {
   body: loginBodySchema,
+  response: {
+    200: authSuccessResponseSchema,
+    401: errorResponseSchema,
+    500: errorResponseSchema,
+  },
+} as const;
+
+export const refreshSchema = {
+  body: refreshBodySchema,
   response: {
     200: authSuccessResponseSchema,
     401: errorResponseSchema,

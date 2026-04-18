@@ -2,8 +2,8 @@ import "dotenv/config";
 import Fastify, { FastifyError, FastifyRequest, FastifyReply } from "fastify";
 import prismaPlugin from "./plugins/prisma.js";
 import authRoutes from "./routes/auth.js";
+import apiRoutes from "./routes/api.js";
 import healthRoutes from "./routes/health.js";
-import recommendationsRoutes from "./routes/recommendations.js";
 import { userSchema, errorResponseSchema } from "./schemas/auth.js";
 import { AppError, InternalServerError } from "./utils/errors.js";
 import { createErrorResponse } from "./utils/response.js";
@@ -18,14 +18,6 @@ const fastify = Fastify({
 // Register shared schemas for reuse
 fastify.addSchema(userSchema);
 fastify.addSchema(errorResponseSchema);
-
-// Register plugins
-fastify.register(prismaPlugin);
-
-// Register routes
-fastify.register(authRoutes, { prefix: "/api/auth" });
-fastify.register(recommendationsRoutes, { prefix: "/api" });
-fastify.register(healthRoutes);
 
 // Centralized error handler
 fastify.setErrorHandler(
@@ -88,9 +80,35 @@ fastify.setErrorHandler(
 const PORT = Number(process.env.PORT) || 3000;
 const HOST = process.env.HOST || "0.0.0.0";
 
+async function registerApplication(): Promise<void> {
+  await fastify.register(prismaPlugin);
+
+  // Registered on the root app so GET /api/tags always exists (Fastify 5 + prefixed plugins
+  // has been unreliable for this route in production).
+  fastify.get("/api/tags", async (_request, reply) => {
+    const tags = await fastify.prisma.tag.findMany({
+      where: { isActive: true, isPreference: true },
+      orderBy: [{ category: { sortOrder: "asc" } }, { sortOrder: "asc" }],
+      select: {
+        id: true,
+        name: true,
+        slug: true,
+        description: true,
+        category: { select: { id: true, name: true, slug: true, sortOrder: true } },
+      },
+    });
+    return reply.send({ tags });
+  });
+
+  await fastify.register(authRoutes, { prefix: "/api/auth" });
+  await fastify.register(apiRoutes, { prefix: "/api" });
+  await fastify.register(healthRoutes);
+}
+
 // Start server
 async function start() {
   try {
+    await registerApplication();
     await fastify.listen({ port: PORT, host: HOST });
     fastify.log.info(`Server listening on ${HOST}:${PORT}`);
   } catch (err) {

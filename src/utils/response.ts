@@ -9,6 +9,7 @@ export interface UserResponse {
   lastName: string | null;
   displayName: string | null;
   createdAt: string;
+  onboardingCompletedAt: string | null;
 }
 
 export interface AuthSuccessResponse {
@@ -32,6 +33,7 @@ export function createUserResponse(user: {
   lastName: string | null;
   displayName: string | null;
   createdAt: Date;
+  onboardingCompletedAt: Date | null;
 }): UserResponse {
   return {
     id: user.id,
@@ -40,6 +42,7 @@ export function createUserResponse(user: {
     lastName: user.lastName,
     displayName: user.displayName,
     createdAt: user.createdAt.toISOString(),
+    onboardingCompletedAt: user.onboardingCompletedAt ? user.onboardingCompletedAt.toISOString() : null,
   };
 }
 
@@ -54,6 +57,7 @@ export function createAuthSuccessResponse(
     lastName: string | null;
     displayName: string | null;
     createdAt: Date;
+    onboardingCompletedAt: Date | null;
   },
   accessToken: string,
   refreshToken: string

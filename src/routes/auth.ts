@@ -6,8 +6,9 @@ import {
   hashToken,
   generateTokens,
   getRefreshTokenExpiry,
+  verifyRefreshToken,
 } from "../utils/auth.js";
-import { registerSchema, loginSchema } from "../schemas/auth.js";
+import { registerSchema, loginSchema, refreshSchema } from "../schemas/auth.js";
 import {
   createAuthSuccessResponse,
   createErrorResponse,
@@ -67,6 +68,7 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
             lastName: true,
             displayName: true,
             createdAt: true,
+            onboardingCompletedAt: true,
           },
         });
 
@@ -126,6 +128,7 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
           lastName: true,
           displayName: true,
           createdAt: true,
+          onboardingCompletedAt: true,
         },
       });
 
@@ -169,6 +172,68 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
       });
 
       return reply.status(200).send(createAuthSuccessResponse(user, accessToken, refreshToken));
+    }
+  );
+
+  fastify.post<{ Body: { refreshToken: string } }>(
+    "/refresh",
+    { schema: refreshSchema },
+    async (request, reply) => {
+      const raw = request.body.refreshToken?.trim();
+      if (!raw) {
+        return reply.status(400).send(createErrorResponse("Validation Error", "refreshToken is required"));
+      }
+
+      const verified = verifyRefreshToken(raw);
+      if (!verified) {
+        return reply.status(401).send(createErrorResponse("Authentication Error", "Invalid or expired refresh token"));
+      }
+
+      const refreshTokenHash = hashToken(raw);
+      const session = await fastify.prisma.session.findUnique({
+        where: { refreshTokenHash },
+        include: {
+          user: {
+            select: {
+              id: true,
+              email: true,
+              firstName: true,
+              lastName: true,
+              displayName: true,
+              createdAt: true,
+              onboardingCompletedAt: true,
+            },
+          },
+        },
+      });
+
+      if (!session || session.revokedAt != null || session.expiresAt < new Date()) {
+        return reply.status(401).send(createErrorResponse("Authentication Error", "Invalid or expired refresh token"));
+      }
+
+      if (session.userId !== verified.userId) {
+        return reply.status(401).send(createErrorResponse("Authentication Error", "Invalid or expired refresh token"));
+      }
+
+      const { accessToken, refreshToken } = generateTokens(session.userId);
+      const newRefreshHash = hashToken(refreshToken);
+      const expiresAt = getRefreshTokenExpiry();
+
+      await fastify.prisma.$transaction(async (tx) => {
+        await tx.session.update({
+          where: { id: session.id },
+          data: { revokedAt: new Date() },
+        });
+        await tx.session.create({
+          data: {
+            userId: session.userId,
+            refreshTokenHash: newRefreshHash,
+            expiresAt,
+          },
+        });
+      });
+
+      return reply.status(200).send(createAuthSuccessResponse(session.user, accessToken, refreshToken));
     }
   );
 };
