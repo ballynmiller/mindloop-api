@@ -76,6 +76,7 @@ model User {
   sessions           Session[]
   verificationTokens VerificationToken[]
   preferredTags      UserPreferredTag[]
+  favoriteShops      UserFavoriteShop[]
 
   @@index([createdAt])
 }
@@ -189,11 +190,27 @@ model CoffeeShop {
   tags   CoffeeShopTag[]
   images CoffeeShopImage[]
 
+  favoritedBy UserFavoriteShop[]
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@index([city, state])
   @@index([latitude, longitude])
+}
+
+model UserFavoriteShop {
+  id           String   @id @default(cuid())
+  createdAt    DateTime @default(now())
+  userId       String
+  coffeeShopId String
+
+  user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  coffeeShop CoffeeShop @relation(fields: [coffeeShopId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, coffeeShopId])
+  @@index([userId, createdAt])
+  @@index([coffeeShopId])
 }
 
 model CoffeeShopImage {

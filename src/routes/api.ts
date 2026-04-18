@@ -1,5 +1,6 @@
 import { FastifyPluginAsync } from "fastify";
 
+import { getFavoriteShopIds, listFavorites, toggleFavorite } from "../favorites/service.js";
 import { getRecommendations, type GetRecommendationsBody } from "../recommendations/service.js";
 import { postRecommendationsSchema } from "../schemas/recommendations.js";
 import { verifyAccessToken } from "../utils/auth.js";
@@ -46,6 +47,62 @@ const apiRoutes: FastifyPluginAsync = async (fastify) => {
     }
 
     return reply.send({ user: createUserResponse(user) });
+  });
+
+  fastify.get("/me/favorite-ids", async (request, reply) => {
+    const userId = bearerUserId(request.headers.authorization);
+    if (!userId) {
+      return reply.status(401).send(createErrorResponse("Authentication Error", "Missing or invalid token"));
+    }
+    const shopIds = await getFavoriteShopIds(fastify.prisma, userId);
+    return reply.send({ shopIds });
+  });
+
+  fastify.get<{
+    Querystring: { page?: string; limit?: string; search?: string };
+  }>("/me/favorites", async (request, reply) => {
+    const userId = bearerUserId(request.headers.authorization);
+    if (!userId) {
+      return reply.status(401).send(createErrorResponse("Authentication Error", "Missing or invalid token"));
+    }
+
+    const page = Math.max(1, Math.floor(Number(request.query.page)) || 1);
+    const limitRaw = Math.floor(Number(request.query.limit)) || 5;
+    const limit = Math.min(50, Math.max(1, limitRaw));
+    const search =
+      typeof request.query.search === "string" && request.query.search.trim()
+        ? request.query.search
+        : undefined;
+
+    const u = await fastify.prisma.user.findUnique({
+      where: { id: userId },
+      select: { timeZone: true },
+    });
+    const timeZone = u?.timeZone?.trim() || "America/Chicago";
+
+    const result = await listFavorites(fastify.prisma, userId, page, limit, search, timeZone);
+    return reply.send(result);
+  });
+
+  fastify.post<{ Body: { coffeeShopId?: unknown } }>("/me/favorites/toggle", async (request, reply) => {
+    const userId = bearerUserId(request.headers.authorization);
+    if (!userId) {
+      return reply.status(401).send(createErrorResponse("Authentication Error", "Missing or invalid token"));
+    }
+
+    const raw = request.body?.coffeeShopId;
+    if (typeof raw !== "string" || !raw.trim()) {
+      throw new ValidationError("coffeeShopId is required");
+    }
+
+    const u = await fastify.prisma.user.findUnique({
+      where: { id: userId },
+      select: { timeZone: true },
+    });
+    const timeZone = u?.timeZone?.trim() || "America/Chicago";
+
+    const result = await toggleFavorite(fastify.prisma, userId, raw.trim(), timeZone);
+    return reply.send(result);
   });
 
   fastify.post<{ Body: { tagIds?: unknown } }>("/me/onboarding", async (request, reply) => {

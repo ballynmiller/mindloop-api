@@ -11,11 +11,9 @@ export function confidenceFromScore(s: ScoredShop): ConfidenceLevel {
 }
 
 const PRETTY_TAG: Record<string, string> = {
-  "natural-light": "Natural light",
   minimalist: "Minimalist vibe",
   calm: "Calm",
   quiet: "Low noise",
-  bright: "Bright space",
   cozy: "Cozy atmosphere",
   wifi: "Strong Wi‑Fi",
   outlets: "Plenty of outlets",
@@ -25,6 +23,8 @@ const PRETTY_TAG: Record<string, string> = {
   chill: "Relaxed vibe",
   modern: "Modern feel",
   "easy-parking": "Easy parking",
+  food: "Food available",
+  "public-bathroom": "Public restroom",
 };
 
 export function matchedPreferenceLabels(
@@ -57,7 +57,6 @@ export function buildSummaryLine(mode: RecommendationMode, scored: ScoredShop): 
   if (slugs.has("quiet") || (scored.shop.noiseLevel != null && scored.shop.noiseLevel >= 4)) {
     parts.push("Quiet");
   }
-  if (slugs.has("bright") || slugs.has("natural-light")) parts.push("bright");
   if (mode === "work") parts.push("great for focus");
   if (mode === "chill") parts.push("easy to unwind");
   if (mode === "quick_stop") parts.push("quick stop");

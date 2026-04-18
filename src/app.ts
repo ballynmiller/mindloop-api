@@ -8,11 +8,27 @@ import { userSchema, errorResponseSchema } from "./schemas/auth.js";
 import { AppError, InternalServerError } from "./utils/errors.js";
 import { createErrorResponse } from "./utils/response.js";
 
+const isProduction = process.env.NODE_ENV === "production";
+const logLevel = process.env.LOG_LEVEL || (isProduction ? "info" : "debug");
+const enablePrettyLogs = !isProduction && process.env.PRETTY_LOGS !== "0";
+
 // Initialize Fastify
 const fastify = Fastify({
-  logger: {
-    level: process.env.LOG_LEVEL || (process.env.NODE_ENV === "production" ? "info" : "debug"),
-  },
+  logger: enablePrettyLogs
+    ? {
+        level: logLevel,
+        transport: {
+          target: "pino-pretty",
+          options: {
+            colorize: true,
+            translateTime: "SYS:standard",
+            ignore: "pid,hostname",
+          },
+        },
+      }
+    : {
+        level: logLevel,
+      },
 });
 
 // Register shared schemas for reuse

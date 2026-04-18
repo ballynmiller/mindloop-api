@@ -1,6 +1,6 @@
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
-import { createHash } from "crypto";
+import { createHash, timingSafeEqual } from "crypto";
 
 // Environment variables
 const JWT_SECRET = process.env.JWT_SECRET || "your-secret-key-change-in-production";
@@ -22,11 +22,44 @@ export async function hashPassword(password: string): Promise<string> {
   return bcrypt.hash(password, saltRounds);
 }
 
+/** bcrypt modular crypt format (e.g. $2b$12$...) */
+function isBcryptHash(stored: string): boolean {
+  return /^\$2[aby]\$\d{2}\$[./0-9A-Za-z]{53}$/.test(stored);
+}
+
 /**
- * Verify password against hash
+ * Legacy rows may have stored the raw password in `passwordHash`. Compare without leaking length
+ * via early return (digest comparison is fixed length).
  */
-export async function verifyPassword(password: string, hash: string): Promise<boolean> {
-  return bcrypt.compare(password, hash);
+function legacyPlaintextPasswordMatches(password: string, storedPlaintext: string): boolean {
+  const a = createHash("sha256").update(password, "utf8").digest();
+  const b = createHash("sha256").update(storedPlaintext, "utf8").digest();
+  return timingSafeEqual(a, b);
+}
+
+export type VerifyPasswordResult = { ok: boolean; needsRehash: boolean };
+
+/**
+ * Verify password against stored value. `stored` must be either a bcrypt hash or (legacy) plaintext.
+ * When legacy plaintext matches, `needsRehash` is true — persist `hashPassword(password)` on login.
+ */
+export async function verifyPasswordResult(
+  password: string,
+  stored: string,
+): Promise<VerifyPasswordResult> {
+  if (isBcryptHash(stored)) {
+    const ok = await bcrypt.compare(password, stored);
+    return { ok, needsRehash: false };
+  }
+  const ok = legacyPlaintextPasswordMatches(password, stored);
+  return { ok, needsRehash: ok };
+}
+
+/**
+ * Verify password against stored hash or legacy plaintext.
+ */
+export async function verifyPassword(password: string, stored: string): Promise<boolean> {
+  return (await verifyPasswordResult(password, stored)).ok;
 }
 
 /**

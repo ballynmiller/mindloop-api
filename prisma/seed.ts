@@ -24,6 +24,17 @@ const prisma = new PrismaClient({ adapter: new PrismaPg(pool) });
  * Primarily coffee / espresso and bakery or cafe snacks — not full-service restaurants or grocery stores.
  * **No duplicate chains** (one Caribou, one Starbucks, one Dunkin', etc.); multiple distinct local names are fine.
  * Addresses / phones from public listings; coordinates from OpenStreetMap Nominatim where it resolves.
+ *
+ * **Default — create missing, preserve existing:** Ensures tag categories/tags from this file exist.
+ * Creates **new** coffee shops (by slug) with full seed data. **Existing** shops are not updated,
+ * but **missing `CoffeeShopTag` links** for tags listed in seed are added (manual/extra tags stay).
+ * Adds a placeholder image only if the shop has no images. `googlePlaceId` is untouched.
+ *
+ * **Override:** `SEED_OVERWRITE=1` or `SEED_OVERRIDE=1` — full re-sync: update shop rows from seed,
+ * replace shop tags with the seed list (removes tags not in seed), refresh placeholder images when
+ * applicable, clear `googlePlaceId` for seeded slugs, deprecated-tag cleanup.
+ *
+ * **Purge (optional):** `SEED_PURGE_ORPHANS=1` — delete shops not in the seed list (or wrong city/state).
  */
 
 type WeekHours = {
@@ -160,8 +171,50 @@ type SeedShop = {
   priceLevel?: number | null;
 };
 
+function envFlag(name: string): boolean {
+  const v = process.env[name]?.trim().toLowerCase();
+  return v === "1" || v === "true" || v === "yes";
+}
+
+/** When true, existing seeded rows are updated from this file (see file header). */
+function seedOverrideEnabled(): boolean {
+  return envFlag("SEED_OVERWRITE") || envFlag("SEED_OVERRIDE");
+}
+
+function shopDataFromSeed(shop: SeedShop) {
+  return {
+    name: shop.name,
+    city: shop.city,
+    state: shop.state,
+    latitude: shop.latitude,
+    longitude: shop.longitude,
+    hours: shop.hours as object,
+    addressLine1: shop.addressLine1,
+    postalCode: shop.postalCode,
+    description: shop.description ?? null,
+    phone: shop.phone ?? null,
+    websiteUrl: shop.websiteUrl ?? null,
+    wifiQuality: shop.wifiQuality ?? null,
+    noiseLevel: shop.noiseLevel ?? null,
+    outletAvailability: shop.outletAvailability ?? null,
+    seatingComfort: shop.seatingComfort ?? null,
+    parkingQuality: shop.parkingQuality ?? null,
+    ratingAvg: shop.ratingAvg ?? null,
+    reviewCount: shop.reviewCount ?? null,
+    priceLevel: shop.priceLevel ?? null,
+  };
+}
+
 async function main() {
+  const seedOverwrite = seedOverrideEnabled();
+  const seedPurgeOrphans = envFlag("SEED_PURGE_ORPHANS");
+
   console.log("🌱 Seeding coffee shops (Maple Grove — coffee / cafe focused)...");
+  if (!seedOverwrite) {
+    console.log(
+      "  New shops + new tag links only; existing shop rows unchanged. Set SEED_OVERRIDE=1 for full re-sync.",
+    );
+  }
   if (process.env.GOOGLE_PLACES_API_KEY?.trim()) {
     console.log(
       "  (Skipping seed placeholder images — run: pnpm backfill:google-images)",
@@ -189,15 +242,15 @@ async function main() {
   const tagData = [
     { name: "Quiet", slug: "quiet", categoryId: vibe.id },
     { name: "Cozy", slug: "cozy", categoryId: vibe.id },
-    { name: "Bright", slug: "bright", categoryId: vibe.id },
     { name: "Modern", slug: "modern", categoryId: vibe.id },
     { name: "Calm", slug: "calm", categoryId: vibe.id },
     { name: "Minimalist", slug: "minimalist", categoryId: vibe.id },
-    { name: "Natural Light", slug: "natural-light", categoryId: vibe.id },
 
     { name: "WiFi", slug: "wifi", categoryId: amenities.id },
     { name: "Outlets", slug: "outlets", categoryId: amenities.id },
     { name: "Parking Easy", slug: "easy-parking", categoryId: amenities.id },
+    { name: "Food", slug: "food", categoryId: amenities.id },
+    { name: "Public bathroom", slug: "public-bathroom", categoryId: amenities.id },
 
     { name: "Work", slug: "work", categoryId: useCase.id },
     { name: "Quick Stop", slug: "quick-stop", categoryId: useCase.id },
@@ -215,6 +268,29 @@ async function main() {
     tags[t.slug] = tag.id;
   }
 
+  async function ensureSeedTagLinksForShop(coffeeShopId: string, shop: SeedShop): Promise<void> {
+    for (const tagSlug of shop.tags) {
+      const tagId = tags[tagSlug.trim()];
+      if (!tagId) {
+        console.warn(`Skipping unknown tag slug "${tagSlug}" for shop ${shop.slug}`);
+        continue;
+      }
+      await prisma.coffeeShopTag.upsert({
+        where: {
+          coffeeShopId_tagId: {
+            coffeeShopId,
+            tagId,
+          },
+        },
+        update: {},
+        create: {
+          coffeeShopId,
+          tagId,
+        },
+      });
+    }
+  }
+
   // Keep Daily Dose + Kingdom Coffee as fixed local fixtures when rotating other chains.
   const shops: SeedShop[] = [
     {
@@ -230,7 +306,7 @@ async function main() {
       phone: "+17636570919",
       websiteUrl: "https://dailydosemn.com/",
       description: "Locally owned cafe; espresso, pastries, breakfast sandwiches.",
-      tags: ["cozy", "wifi", "meet", "chill", "work", "natural-light"],
+      tags: ["cozy", "wifi", "meet", "chill", "work"],
       wifiQuality: 4,
       noiseLevel: 3,
       outletAvailability: 3,
@@ -253,7 +329,20 @@ async function main() {
       phone: "+17634243866",
       websiteUrl: "https://www.kingdomcoffeemn.com/",
       description: "Specialty coffee roaster & cafe at Main St & Arbor Lakes (former Dunn Bros site).",
-      tags: ["modern", "wifi", "work", "cozy", "meet", "calm"],
+      tags: [
+        "modern",
+        "wifi",
+        "work",
+        "cozy",
+        "meet",
+        "calm",
+        "easy-parking",
+        "chill",
+        "minimalist",
+        "outlets",
+        "food",
+        "public-bathroom",
+      ],
       wifiQuality: 4,
       noiseLevel: 4,
       outletAvailability: 4,
@@ -277,7 +366,7 @@ async function main() {
       websiteUrl: "https://www.coffeeshopmaplegrove.com/",
       description:
         "Locally owned coffee shop; espresso, cold brew, crepes, and bakery items — not a full-service restaurant.",
-      tags: ["cozy", "wifi", "meet", "chill", "natural-light", "quick-stop"],
+      tags: ["cozy", "wifi", "meet", "chill", "quick-stop"],
       wifiQuality: 4,
       noiseLevel: 3,
       ratingAvg: 4.5,
@@ -377,7 +466,7 @@ async function main() {
       websiteUrl: "https://maplegrovebread.com/",
       description:
         "Bakery cafe; coffee, sandwiches, and fresh bread — Grove Square. Franchise hours vary (often closed Monday); confirm before visiting.",
-      tags: ["cozy", "quick-stop", "wifi", "natural-light", "chill"],
+      tags: ["cozy", "quick-stop", "wifi", "chill"],
       wifiQuality: 3,
       noiseLevel: 3,
       ratingAvg: 4.5,
@@ -429,116 +518,104 @@ async function main() {
 
   const seedSlugs = shops.map((s) => s.slug);
 
-  const purge = await prisma.coffeeShop.deleteMany({
-    where: {
-      OR: [
-        { slug: { notIn: seedSlugs } },
-        { city: { not: "Maple Grove" } },
-        { state: { not: "MN" } },
-      ],
-    },
-  });
-  if (purge.count > 0) {
-    console.log(`   Removed ${purge.count} coffee shop row(s) not in Maple Grove seed list.`);
+  if (seedPurgeOrphans) {
+    const purge = await prisma.coffeeShop.deleteMany({
+      where: {
+        OR: [
+          { slug: { notIn: seedSlugs } },
+          { city: { not: "Maple Grove" } },
+          { state: { not: "MN" } },
+        ],
+      },
+    });
+    if (purge.count > 0) {
+      console.log(`   Removed ${purge.count} coffee shop row(s) not in Maple Grove seed list (SEED_PURGE_ORPHANS).`);
+    }
   }
 
   const seedPlaceholderImages = !process.env.GOOGLE_PLACES_API_KEY?.trim();
 
   for (const shop of shops) {
-    const created = await prisma.coffeeShop.upsert({
-      where: { slug: shop.slug },
-      update: {
-        name: shop.name,
-        city: shop.city,
-        state: shop.state,
-        latitude: shop.latitude,
-        longitude: shop.longitude,
-        hours: shop.hours as object,
-        addressLine1: shop.addressLine1,
-        postalCode: shop.postalCode,
-        description: shop.description ?? null,
-        phone: shop.phone ?? null,
-        websiteUrl: shop.websiteUrl ?? null,
-        wifiQuality: shop.wifiQuality ?? null,
-        noiseLevel: shop.noiseLevel ?? null,
-        outletAvailability: shop.outletAvailability ?? null,
-        seatingComfort: shop.seatingComfort ?? null,
-        parkingQuality: shop.parkingQuality ?? null,
-        ratingAvg: shop.ratingAvg ?? null,
-        reviewCount: shop.reviewCount ?? null,
-        priceLevel: shop.priceLevel ?? null,
-      },
-      create: {
-        name: shop.name,
-        slug: shop.slug,
-        city: shop.city,
-        state: shop.state,
-        latitude: shop.latitude,
-        longitude: shop.longitude,
-        hours: shop.hours as object,
-        addressLine1: shop.addressLine1,
-        postalCode: shop.postalCode,
-        description: shop.description ?? null,
-        phone: shop.phone ?? null,
-        websiteUrl: shop.websiteUrl ?? null,
-        wifiQuality: shop.wifiQuality ?? null,
-        noiseLevel: shop.noiseLevel ?? null,
-        outletAvailability: shop.outletAvailability ?? null,
-        seatingComfort: shop.seatingComfort ?? null,
-        parkingQuality: shop.parkingQuality ?? null,
-        ratingAvg: shop.ratingAvg ?? null,
-        reviewCount: shop.reviewCount ?? null,
-        priceLevel: shop.priceLevel ?? null,
-      },
-    });
+    const existing = await prisma.coffeeShop.findUnique({ where: { slug: shop.slug } });
+
+    if (existing && !seedOverwrite) {
+      await ensureSeedTagLinksForShop(existing.id, shop);
+      if (seedPlaceholderImages) {
+        const existingImg = await prisma.coffeeShopImage.findFirst({
+          where: { coffeeShopId: existing.id },
+          orderBy: { sortOrder: "asc" },
+        });
+        if (!existingImg) {
+          await prisma.coffeeShopImage.create({
+            data: {
+              coffeeShopId: existing.id,
+              url: COFFEE_SHOP_PLACEHOLDER_IMAGE_URL,
+              sortOrder: 0,
+            },
+          });
+        }
+      }
+      continue;
+    }
+
+    const row = existing
+      ? await prisma.coffeeShop.update({
+          where: { id: existing.id },
+          data: shopDataFromSeed(shop),
+        })
+      : await prisma.coffeeShop.create({
+          data: { slug: shop.slug, ...shopDataFromSeed(shop) },
+        });
 
     if (seedPlaceholderImages) {
       const existingImg = await prisma.coffeeShopImage.findFirst({
-        where: { coffeeShopId: created.id },
+        where: { coffeeShopId: row.id },
         orderBy: { sortOrder: "asc" },
       });
-      if (existingImg) {
-        await prisma.coffeeShopImage.update({
-          where: { id: existingImg.id },
-          data: { url: COFFEE_SHOP_PLACEHOLDER_IMAGE_URL },
-        });
-      } else {
+      if (!existingImg) {
         await prisma.coffeeShopImage.create({
           data: {
-            coffeeShopId: created.id,
+            coffeeShopId: row.id,
             url: COFFEE_SHOP_PLACEHOLDER_IMAGE_URL,
             sortOrder: 0,
           },
         });
+      } else if (seedOverwrite) {
+        await prisma.coffeeShopImage.update({
+          where: { id: existingImg.id },
+          data: { url: COFFEE_SHOP_PLACEHOLDER_IMAGE_URL },
+        });
       }
     }
 
-    for (const tagSlug of shop.tags) {
-      const tagId = tags[tagSlug.trim()];
-      if (!tagId) {
-        console.warn(`Skipping unknown tag slug "${tagSlug}" for shop ${shop.slug}`);
-        continue;
-      }
-      await prisma.coffeeShopTag.upsert({
+    await ensureSeedTagLinksForShop(row.id, shop);
+
+    const keepTagIds = shop.tags
+      .map((s) => tags[s.trim()])
+      .filter((id): id is string => Boolean(id));
+    if (seedOverwrite && keepTagIds.length > 0) {
+      await prisma.coffeeShopTag.deleteMany({
         where: {
-          coffeeShopId_tagId: {
-            coffeeShopId: created.id,
-            tagId,
-          },
-        },
-        update: {},
-        create: {
-          coffeeShopId: created.id,
-          tagId,
+          coffeeShopId: row.id,
+          tagId: { notIn: keepTagIds },
         },
       });
     }
   }
 
-  await prisma.coffeeShop.updateMany({
-    where: { slug: { in: seedSlugs } },
-    data: { googlePlaceId: null },
-  });
+  if (seedOverwrite) {
+    const removedTags = await prisma.tag.deleteMany({
+      where: { slug: { in: ["bright", "natural-light"] } },
+    });
+    if (removedTags.count > 0) {
+      console.log(`   Removed ${removedTags.count} deprecated tag row(s) (bright, natural-light).`);
+    }
+
+    await prisma.coffeeShop.updateMany({
+      where: { slug: { in: seedSlugs } },
+      data: { googlePlaceId: null },
+    });
+  }
 
   console.log(`✅ Seed complete (${shops.length} shops).`);
   console.log(

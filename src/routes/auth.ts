@@ -2,7 +2,7 @@ import { FastifyPluginAsync } from "fastify";
 import {
   normalizeEmail,
   hashPassword,
-  verifyPassword,
+  verifyPasswordResult,
   hashToken,
   generateTokens,
   getRefreshTokenExpiry,
@@ -150,11 +150,20 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
         throw new AuthenticationError("Invalid email or password");
       }
 
-      // Verify password
-      const isValidPassword = await verifyPassword(password, authIdentity.passwordHash);
+      const { ok: isValidPassword, needsRehash } = await verifyPasswordResult(
+        password,
+        authIdentity.passwordHash,
+      );
 
       if (!isValidPassword) {
         throw new AuthenticationError("Invalid email or password");
+      }
+
+      if (needsRehash) {
+        await fastify.prisma.authIdentity.update({
+          where: { id: authIdentity.id },
+          data: { passwordHash: await hashPassword(password) },
+        });
       }
 
       // Generate tokens
