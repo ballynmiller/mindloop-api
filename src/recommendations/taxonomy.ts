@@ -54,7 +54,6 @@ export const INTENT_GROUPS: IntentGroup[] = [
     subTags: [
       { slug: "cozy",            label: "Cozy",             weight: 18,  primary: true  },
       { slug: "calm",            label: "Calm",             weight: 16,  primary: true  },
-      { slug: "chill",           label: "Chill vibe",       weight: 14,  primary: true  },
       { slug: "quiet",           label: "Quiet",            weight: 12,  primary: true  },
       { slug: "minimalist",      label: "Minimalist",       weight: 6,   primary: false },
       { slug: "food",            label: "Food available",   weight: 6,   primary: false },
@@ -65,7 +64,6 @@ export const INTENT_GROUPS: IntentGroup[] = [
     id: "quick_stop",
     label: "Quick Stop",
     subTags: [
-      { slug: "quick-stop",      label: "Quick stop",       weight: 18,  primary: true  },
       { slug: "easy-parking",    label: "Easy parking",     weight: 14,  primary: true  },
       { slug: "food",            label: "Food available",   weight: 10,  primary: true  },
       { slug: "wifi",            label: "WiFi",             weight: 8,   primary: false },
@@ -76,7 +74,6 @@ export const INTENT_GROUPS: IntentGroup[] = [
     id: "meet",
     label: "Meet",
     subTags: [
-      { slug: "meet",            label: "Meeting-friendly", weight: 16,  primary: true  },
       { slug: "cozy",            label: "Cozy",             weight: 10,  primary: true  },
       { slug: "calm",            label: "Calm",             weight: 8,   primary: true  },
       { slug: "wifi",            label: "WiFi",             weight: 8,   primary: true  },

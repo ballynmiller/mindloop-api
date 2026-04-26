@@ -233,12 +233,6 @@ async function main() {
     create: { name: "Amenities", slug: "amenities" },
   });
 
-  const useCase = await prisma.tagCategory.upsert({
-    where: { slug: "use-case" },
-    update: {},
-    create: { name: "Use Case", slug: "use-case" },
-  });
-
   const tagData = [
     { name: "Quiet", slug: "quiet", categoryId: vibe.id },
     { name: "Cozy", slug: "cozy", categoryId: vibe.id },
@@ -252,10 +246,6 @@ async function main() {
     { name: "Food", slug: "food", categoryId: amenities.id },
     { name: "Public bathroom", slug: "public-bathroom", categoryId: amenities.id },
 
-    { name: "Work", slug: "work", categoryId: useCase.id },
-    { name: "Quick Stop", slug: "quick-stop", categoryId: useCase.id },
-    { name: "Meet", slug: "meet", categoryId: useCase.id },
-    { name: "Chill", slug: "chill", categoryId: useCase.id },
   ];
 
   const tags: Record<string, string> = {};
@@ -306,7 +296,7 @@ async function main() {
       phone: "+17636570919",
       websiteUrl: "https://dailydosemn.com/",
       description: "Locally owned cafe; espresso, pastries, breakfast sandwiches.",
-      tags: ["cozy", "wifi", "meet", "chill", "work"],
+      tags: ["cozy", "wifi"],
       wifiQuality: 4,
       noiseLevel: 3,
       outletAvailability: 3,
@@ -329,20 +319,7 @@ async function main() {
       phone: "+17634243866",
       websiteUrl: "https://www.kingdomcoffeemn.com/",
       description: "Specialty coffee roaster & cafe at Main St & Arbor Lakes (former Dunn Bros site).",
-      tags: [
-        "modern",
-        "wifi",
-        "work",
-        "cozy",
-        "meet",
-        "calm",
-        "easy-parking",
-        "chill",
-        "minimalist",
-        "outlets",
-        "food",
-        "public-bathroom",
-      ],
+      tags: ["modern", "wifi", "cozy", "calm", "easy-parking", "minimalist", "outlets", "food", "public-bathroom"],
       wifiQuality: 4,
       noiseLevel: 4,
       outletAvailability: 4,
@@ -366,7 +343,7 @@ async function main() {
       websiteUrl: "https://www.coffeeshopmaplegrove.com/",
       description:
         "Locally owned coffee shop; espresso, cold brew, crepes, and bakery items — not a full-service restaurant.",
-      tags: ["cozy", "wifi", "meet", "chill", "quick-stop"],
+      tags: ["cozy", "wifi"],
       wifiQuality: 4,
       noiseLevel: 3,
       ratingAvg: 4.5,
@@ -386,7 +363,7 @@ async function main() {
       phone: "+16124263391",
       websiteUrl: "https://locations.cariboucoffee.com/us/mn/maple-grove/9805-maple-grove-parkway",
       description: "Closest Caribou to Arbor Lakes Pkwy; drive-thru & indoor seating.",
-      tags: ["wifi", "quick-stop", "easy-parking", "meet"],
+      tags: ["wifi", "easy-parking"],
       wifiQuality: 4,
       noiseLevel: 3,
       ratingAvg: 4.3,
@@ -406,7 +383,7 @@ async function main() {
       phone: "+17634650012",
       websiteUrl: "https://www.starbucks.com/store-locator",
       description: "Arbor Lakes area; Hemlock & Elm Creek Pkwy.",
-      tags: ["wifi", "work", "quick-stop", "meet"],
+      tags: ["wifi", "outlets"],
       wifiQuality: 4,
       noiseLevel: 3,
       outletAvailability: 3,
@@ -426,7 +403,7 @@ async function main() {
       hours: brueggersHours,
       phone: "+17635596968",
       websiteUrl: "https://www.brueggers.com/",
-      tags: ["quick-stop", "cozy", "wifi"],
+      tags: ["cozy", "wifi"],
       wifiQuality: 3,
       noiseLevel: 3,
       ratingAvg: 4.2,
@@ -445,7 +422,7 @@ async function main() {
       hours: dunkinTypicalHours,
       phone: "+17632735640",
       websiteUrl: "https://locations.dunkindonuts.com/en/mn/maple-grove",
-      tags: ["quick-stop", "wifi", "easy-parking"],
+      tags: ["wifi", "easy-parking"],
       wifiQuality: 3,
       noiseLevel: 2,
       ratingAvg: 4.0,
@@ -466,7 +443,7 @@ async function main() {
       websiteUrl: "https://maplegrovebread.com/",
       description:
         "Bakery cafe; coffee, sandwiches, and fresh bread — Grove Square. Franchise hours vary (often closed Monday); confirm before visiting.",
-      tags: ["cozy", "quick-stop", "wifi", "chill"],
+      tags: ["cozy", "wifi", "food"],
       wifiQuality: 3,
       noiseLevel: 3,
       ratingAvg: 4.5,
@@ -486,7 +463,7 @@ async function main() {
       phone: "+16122082889",
       websiteUrl: "https://www.hinterlandmn.com/",
       description: "Local roastery & retail; beans and espresso drinks.",
-      tags: ["modern", "calm", "wifi", "work", "meet"],
+      tags: ["modern", "calm", "wifi", "outlets"],
       wifiQuality: 3,
       noiseLevel: 3,
       outletAvailability: 3,
@@ -507,7 +484,7 @@ async function main() {
       phone: "+17632024009",
       websiteUrl: "https://uffdadonuts.com/",
       description: "Family-owned donut shop with espresso, smoothies, and sandwiches — Grove Square (next to Great Harvest).",
-      tags: ["quick-stop", "cozy", "wifi", "chill"],
+      tags: ["cozy", "wifi", "food"],
       wifiQuality: 3,
       noiseLevel: 3,
       ratingAvg: 4.4,
