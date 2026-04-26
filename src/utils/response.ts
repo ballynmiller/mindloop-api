@@ -1,6 +1,13 @@
-/**
- * Response helper functions for consistent API responses
- */
+export const USER_SELECT = {
+  id: true,
+  email: true,
+  firstName: true,
+  lastName: true,
+  displayName: true,
+  isAdmin: true,
+  createdAt: true,
+  onboardingCompletedAt: true,
+} as const;
 
 export interface UserResponse {
   id: string;
@@ -8,6 +15,7 @@ export interface UserResponse {
   firstName: string | null;
   lastName: string | null;
   displayName: string | null;
+  isAdmin: boolean;
   createdAt: string;
   onboardingCompletedAt: string | null;
 }
@@ -23,15 +31,13 @@ export interface ErrorResponse {
   message: string;
 }
 
-/**
- * Create a user response object from user data
- */
 export function createUserResponse(user: {
   id: string;
   email: string;
   firstName: string | null;
   lastName: string | null;
   displayName: string | null;
+  isAdmin: boolean;
   createdAt: Date;
   onboardingCompletedAt: Date | null;
 }): UserResponse {
@@ -41,14 +47,12 @@ export function createUserResponse(user: {
     firstName: user.firstName,
     lastName: user.lastName,
     displayName: user.displayName,
+    isAdmin: user.isAdmin,
     createdAt: user.createdAt.toISOString(),
     onboardingCompletedAt: user.onboardingCompletedAt ? user.onboardingCompletedAt.toISOString() : null,
   };
 }
 
-/**
- * Create an authentication success response
- */
 export function createAuthSuccessResponse(
   user: {
     id: string;
@@ -56,11 +60,12 @@ export function createAuthSuccessResponse(
     firstName: string | null;
     lastName: string | null;
     displayName: string | null;
+    isAdmin: boolean;
     createdAt: Date;
     onboardingCompletedAt: Date | null;
   },
   accessToken: string,
-  refreshToken: string
+  refreshToken: string,
 ): AuthSuccessResponse {
   return {
     user: createUserResponse(user),
@@ -69,9 +74,6 @@ export function createAuthSuccessResponse(
   };
 }
 
-/**
- * Create an error response
- */
 export function createErrorResponse(error: string, message: string): ErrorResponse {
   return {
     error,

@@ -55,6 +55,7 @@ model User {
   firstName   String?
   lastName    String?
   displayName String?
+  isAdmin     Boolean  @default(false)
   avatarUrl   String?
   timeZone    String   @default("America/Chicago")
 

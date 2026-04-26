@@ -1,14 +1,8 @@
-/**
- * Authentication request and response schemas
- */
-
-// Shared schema IDs for reuse
 export const schemas = {
   user: "user",
   error: "error",
 } as const;
 
-// Request Body Schemas
 export const registerBodySchema = {
   type: "object",
   required: ["email", "password"],
@@ -55,7 +49,6 @@ export const refreshBodySchema = {
   },
 } as const;
 
-// Response Schemas
 export const userSchema = {
   $id: schemas.user,
   type: "object",
@@ -65,6 +58,7 @@ export const userSchema = {
     firstName: { type: "string" },
     lastName: { type: "string" },
     displayName: { type: "string" },
+    isAdmin: { type: "boolean" },
     createdAt: { type: "string" },
     onboardingCompletedAt: { type: ["string", "null"] },
   },
@@ -88,7 +82,6 @@ export const errorResponseSchema = {
   },
 } as const;
 
-// Complete Route Schemas
 export const registerSchema = {
   body: registerBodySchema,
   response: {

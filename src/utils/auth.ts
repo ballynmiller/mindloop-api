@@ -106,6 +106,14 @@ export function verifyAccessToken(token: string): { userId: string } | null {
   }
 }
 
+export function extractBearerUserId(header: string | undefined): string | null {
+  if (!header) return null;
+  const match = /^Bearer\s+(\S+)/i.exec(header.trim());
+  const token = match?.[1]?.trim();
+  if (!token) return null;
+  return verifyAccessToken(token)?.userId ?? null;
+}
+
 /**
  * Validate refresh JWT; returns userId or null (expired / invalid).
  */
