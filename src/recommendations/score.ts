@@ -103,9 +103,9 @@ function qualityFit(mode: RecommendationMode, shop: ShopRow): number {
     if (n != null) q += n * 0.8;
     if (w != null) q += w * 1;
   } else if (mode === "meet") {
-    if (s != null) q += s * 2;
-    if (n != null) q += n * 1.2;
-    if (w != null) q += w * 1.5;
+    if (s != null) q += s * 3;
+    if (p != null) q += p * 1.5;
+    if (w != null) q += w * 1.2;
   }
   return q;
 }
