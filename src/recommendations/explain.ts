@@ -57,7 +57,7 @@ function formatClose(hhmm: string): string {
 export function buildSummaryLine(mode: RecommendationMode, scored: ScoredShop): string {
   const slugs = new Set(scored.tagSlugs);
   const parts: string[] = [];
-  if (slugs.has("quiet") || (scored.shop.noiseLevel != null && scored.shop.noiseLevel >= 4)) {
+  if (slugs.has("quiet")) {
     parts.push("Quiet");
   }
   if (mode === "work") parts.push("great for focus");
