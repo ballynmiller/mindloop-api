@@ -128,7 +128,7 @@ function toDto(
   s: ScoredShop,
   preferredTagIds: Set<string>,
 ): RecommendationShopDto {
-  const prefLabels = matchedPreferenceLabels(s, preferredTagIds);
+  const prefLabels = matchedPreferenceLabels(mode, s, preferredTagIds);
   return {
     shopId: s.shop.id,
     name: s.shop.name,

@@ -1,4 +1,4 @@
-import type { RecommendationMode } from "./taxonomy.js";
+import { INTENT_GROUPS, type RecommendationMode } from "./taxonomy.js";
 import type { ScoredShop } from "./score.js";
 
 export type ConfidenceLevel = "high" | "medium" | "low";
@@ -17,23 +17,26 @@ const PRETTY_TAG: Record<string, string> = {
   cozy: "Cozy atmosphere",
   wifi: "Strong Wi‑Fi",
   outlets: "Plenty of outlets",
-  work: "Great for work",
-  "quick-stop": "Quick in and out",
-  meet: "Good for meetups",
-  chill: "Relaxed vibe",
   modern: "Modern feel",
   "easy-parking": "Easy parking",
   food: "Food available",
   "public-bathroom": "Public restroom",
 };
 
+const MODE_SLUG_SET: Record<RecommendationMode, Set<string>> = Object.fromEntries(
+  INTENT_GROUPS.map((g) => [g.id, new Set(g.subTags.map((t) => t.slug))]),
+) as Record<RecommendationMode, Set<string>>;
+
 export function matchedPreferenceLabels(
+  mode: RecommendationMode,
   scored: ScoredShop,
   preferredTagIds: Set<string>,
 ): string[] {
+  const validSlugs = MODE_SLUG_SET[mode];
   const out: string[] = [];
   for (const rel of scored.shop.tags) {
     if (!preferredTagIds.has(rel.tag.id)) continue;
+    if (!validSlugs.has(rel.tag.slug)) continue;
     const label = PRETTY_TAG[rel.tag.slug] ?? rel.tag.name;
     if (!out.includes(label)) out.push(label);
   }
@@ -96,10 +99,10 @@ export function buildReasons(
   if (mode === "chill" && scored.tagSlugs.some((t) => t === "cozy" || t === "calm")) {
     reasons.push("Relaxed vibe for chilling");
   }
-  if (mode === "quick_stop" && scored.tagSlugs.includes("quick-stop")) {
+  if (mode === "quick_stop" && scored.tagSlugs.includes("easy-parking")) {
     reasons.push("Quick, convenient stop");
   }
-  if (mode === "meet" && scored.tagSlugs.includes("meet")) {
+  if (mode === "meet" && scored.tagSlugs.some((t) => t === "cozy" || t === "calm")) {
     reasons.push("Comfortable for conversations");
   }
   for (const label of preferredLabels.slice(0, 3)) {
