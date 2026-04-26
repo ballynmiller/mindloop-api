@@ -41,7 +41,6 @@ export const INTENT_GROUPS: IntentGroup[] = [
       { slug: "wifi",            label: "WiFi",             weight: 12,  primary: true  },
       { slug: "calm",            label: "Calm",             weight: 10,  primary: true  },
       { slug: "outlets",         label: "Outlets",          weight: 10,  primary: true  },
-      { slug: "work",            label: "Work-friendly",    weight: 10,  primary: true  },
       { slug: "minimalist",      label: "Minimalist",       weight: 8,   primary: false },
       { slug: "food",            label: "Food available",   weight: 4,   primary: false },
       { slug: "easy-parking",    label: "Easy parking",     weight: 3,   primary: false },
