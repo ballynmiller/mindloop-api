@@ -102,7 +102,7 @@ const apiRoutes: FastifyPluginAsync = async (fastify) => {
         where: { id: request.params.shopId, isActive: true },
         include: {
           tags: { include: { tag: true } },
-          images: { orderBy: { sortOrder: "asc" }, take: 1 },
+          images: { orderBy: { sortOrder: "asc" } },
         },
       });
 
@@ -169,7 +169,7 @@ const apiRoutes: FastifyPluginAsync = async (fastify) => {
         where: { id: request.params.shopId },
         include: {
           tags: { include: { tag: true } },
-          images: { orderBy: { sortOrder: "asc" }, take: 1 },
+          images: { orderBy: { sortOrder: "asc" } },
         },
       });
 

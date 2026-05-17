@@ -185,6 +185,8 @@ model CoffeeShop {
   reviewCount Int?
   /// 1–4 ($–$$$$) when set.
   priceLevel  Int?
+  /// Typical busy hours: [{label: "8A", level: 0.55}, …] — null until populated.
+  busyHours   Json?
 
   isActive Boolean @default(true)
 

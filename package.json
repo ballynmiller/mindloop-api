@@ -13,6 +13,7 @@
     "prisma:migrate:reset": "prisma migrate reset",
     "prisma:seed": "prisma db seed",
     "backfill:google-images": "tsx scripts/backfill-google-shop-images.ts",
+    "backfill:busy-hours": "tsx scripts/backfill-busy-hours.ts",
     "dev": "tsx watch src/app.ts",
     "prebuild": "prisma generate",
     "build": "tsc -p tsconfig.build.json",

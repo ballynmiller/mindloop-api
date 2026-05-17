@@ -1,12 +1,14 @@
 /**
  * For each coffee shop with no images (or with Unsplash placeholders when --replace-placeholders),
- * resolve a Google Place (stored googlePlaceId or text search) and attach the first Places photo.
- * If there is no confident match, no photo, or the API errors, stores the shared café placeholder image.
+ * resolve a Google Place (stored googlePlaceId or text search) and attach up to --max-photos real
+ * Google Places photos. If there is no confident match, no photo, or the API errors, stores the
+ * shared café placeholder image.
  *
  * Requires: GOOGLE_PLACES_API_KEY (Places API New enabled)
  *
  *   pnpm backfill:google-images
  *   pnpm backfill:google-images -- --replace-placeholders
+ *   pnpm backfill:google-images -- --max-photos=5
  *   pnpm backfill:google-images -- --force-slugs=hinterland-coffee-robin-rd-n
  */
 import "dotenv/config";
@@ -16,7 +18,7 @@ import { Pool } from "pg";
 import { normalizePgConnectionString } from "../src/utils/pgConnectionString.js";
 import {
   COFFEE_SHOP_PLACEHOLDER_IMAGE_URL,
-  getFirstEstablishmentPhoto,
+  getEstablishmentPhotos,
   isUnsplashPlaceholder,
   resolvePlaceIdForCoffeeShop,
   searchPlaceByText,
@@ -32,6 +34,13 @@ function parseForceSlugs(): Set<string> {
       .map((s) => s.trim())
       .filter(Boolean),
   );
+}
+
+function parseMaxPhotos(): number {
+  const raw = process.argv.find((a) => a.startsWith("--max-photos="));
+  if (!raw) return 3;
+  const n = parseInt(raw.slice("--max-photos=".length), 10);
+  return Number.isFinite(n) && n >= 1 ? Math.min(n, 10) : 3;
 }
 
 function buildPlacesTextQuery(shop: {
@@ -59,13 +68,14 @@ const prisma = new PrismaClient({ adapter: new PrismaPg(pool) });
 
 const googleApiKey = process.env.GOOGLE_PLACES_API_KEY?.trim();
 if (!googleApiKey) {
-  console.error("Set GOOGLE_PLACES_API_KEY in .env (Places API New).");
+  console.error("Set GOOGLE_PLACES_API_KEY in .env (Places API New enabled).");
   process.exit(1);
 }
 const apiKey: string = googleApiKey;
 
 const replacePlaceholders = process.argv.includes("--replace-placeholders");
 const forceSlugSet = parseForceSlugs();
+const maxPhotos = parseMaxPhotos();
 
 function sleep(ms: number): Promise<void> {
   return new Promise((r) => setTimeout(r, ms));
@@ -89,15 +99,17 @@ async function setCoffeeShopPlaceholderOnlyImage(shop: {
       },
     });
   });
-  console.log(`  → coffee shop placeholder ${shop.slug}`);
+  console.log(`  → placeholder ${shop.slug}`);
 }
 
 async function main() {
+  console.log(`Fetching up to ${maxPhotos} photo(s) per shop from Google Places…`);
+  if (replacePlaceholders) console.log("  --replace-placeholders: will overwrite Unsplash placeholders");
+  if (forceSlugSet.size) console.log(`  --force-slugs: ${[...forceSlugSet].join(", ")}`);
+
   const shops = await prisma.coffeeShop.findMany({
     where: { isActive: true },
-    include: {
-      images: { orderBy: { sortOrder: "asc" } },
-    },
+    include: { images: { orderBy: { sortOrder: "asc" } } },
   });
 
   let updated = 0;
@@ -108,18 +120,15 @@ async function main() {
     const hasRealImage = shop.images.some((im) => !isUnsplashPlaceholder(im.url));
     const onlyPlaceholder =
       shop.images.length > 0 && shop.images.every((im) => isUnsplashPlaceholder(im.url));
-    let needsImage =
+    const needsImages =
       shop.images.length === 0 || (replacePlaceholders && onlyPlaceholder) || forceThis;
 
     if (forceThis) {
       await prisma.coffeeShopImage.deleteMany({ where: { coffeeShopId: shop.id } });
-      await prisma.coffeeShop.update({
-        where: { id: shop.id },
-        data: { googlePlaceId: null },
-      });
+      await prisma.coffeeShop.update({ where: { id: shop.id }, data: { googlePlaceId: null } });
     }
 
-    if (!needsImage) {
+    if (!needsImages) {
       skipped += 1;
       continue;
     }
@@ -128,6 +137,7 @@ async function main() {
       continue;
     }
 
+    // Resolve place id
     let placeId: string | null = null;
     try {
       if (!forceThis && shop.googlePlaceId?.trim()) {
@@ -140,17 +150,10 @@ async function main() {
           shop.latitude,
           shop.longitude,
           apiKey,
-          {
-            latitude: shop.latitude,
-            longitude: shop.longitude,
-            radiusMeters: 15_000,
-          },
+          { latitude: shop.latitude, longitude: shop.longitude, radiusMeters: 15_000 },
         );
       } else {
-        placeId = await searchPlaceByText(
-          `${shop.name} ${shop.city} ${shop.state}`,
-          apiKey,
-        );
+        placeId = await searchPlaceByText(`${shop.name} ${shop.city} ${shop.state}`, apiKey);
       }
     } catch (e) {
       console.warn(`  search failed ${shop.slug}:`, e);
@@ -161,18 +164,17 @@ async function main() {
     }
 
     if (!placeId) {
-      console.warn(
-        `  no confident Google Places match for ${shop.slug} — using coffee shop placeholder`,
-      );
+      console.warn(`  no confident Google Places match for ${shop.slug} — using placeholder`);
       await setCoffeeShopPlaceholderOnlyImage(shop);
       updated += 1;
       await sleep(150);
       continue;
     }
 
-    let photo: Awaited<ReturnType<typeof getFirstEstablishmentPhoto>>;
+    // Fetch up to maxPhotos real photos
+    let photos: Awaited<ReturnType<typeof getEstablishmentPhotos>>;
     try {
-      photo = await getFirstEstablishmentPhoto(placeId, apiKey);
+      photos = await getEstablishmentPhotos(placeId, apiKey, maxPhotos);
     } catch (e) {
       console.warn(`  photo fetch failed ${shop.slug}:`, e);
       await setCoffeeShopPlaceholderOnlyImage(shop);
@@ -181,8 +183,8 @@ async function main() {
       continue;
     }
 
-    if (!photo) {
-      console.warn(`  no photos for ${shop.slug} — using coffee shop placeholder`);
+    if (photos.length === 0) {
+      console.warn(`  no photos for ${shop.slug} — using placeholder`);
       await setCoffeeShopPlaceholderOnlyImage(shop);
       updated += 1;
       await sleep(200);
@@ -195,22 +197,24 @@ async function main() {
 
     try {
       await prisma.$transaction(async (tx) => {
-        if (replacePlaceholders && onlyPlaceholder) {
+        // Clear old images when replacing or forcing
+        if ((replacePlaceholders && onlyPlaceholder) || forceThis) {
           await tx.coffeeShopImage.deleteMany({ where: { coffeeShopId: shop.id } });
         }
-        await tx.coffeeShopImage.create({
-          data: {
+        await tx.coffeeShopImage.createMany({
+          data: photos.map((p, i) => ({
             coffeeShopId: shop.id,
-            url: photo.url,
-            sortOrder: 0,
+            url: p.url,
+            sortOrder: i,
             altText:
-              photo.attributions.length > 0
-                ? `Photo: ${photo.attributions.join(", ")}`
+              p.attributions.length > 0
+                ? `Photo: ${p.attributions.join(", ")}`
                 : `Photo via Google Places — ${shop.name}`,
-            source: "EDITORIAL",
-          },
+            source: "EDITORIAL" as const,
+          })),
         });
       });
+
       if (forceThis || !shop.googlePlaceId?.trim()) {
         try {
           await prisma.coffeeShop.update({
@@ -218,7 +222,7 @@ async function main() {
             data: { googlePlaceId: placeIdToStore },
           });
         } catch {
-          /* e.g. unique constraint on googlePlaceId */
+          /* unique constraint on googlePlaceId when another shop already owns it */
         }
       }
     } catch (e) {
@@ -228,9 +232,9 @@ async function main() {
       continue;
     }
 
-    console.log(`  ✓ ${shop.slug}`);
+    console.log(`  ✓ ${shop.slug} (${photos.length} photo${photos.length !== 1 ? "s" : ""})`);
     updated += 1;
-    await sleep(250);
+    await sleep(300);
   }
 
   console.log(`\nDone. Updated ${updated}, skipped ${skipped}.`);

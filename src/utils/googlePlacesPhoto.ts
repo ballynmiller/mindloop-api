@@ -213,13 +213,35 @@ export async function resolvePlaceIdForCoffeeShop(
   return candidates[0]!.id;
 }
 
-/**
- * GET place details; resolve first photo to a CDN URL via the photo media redirect.
- */
-export async function getFirstEstablishmentPhoto(
-  placeIdOrName: string,
+type PlacePhoto = {
+  name: string;
+  authorAttributions?: { displayName: string }[];
+};
+
+async function resolvePhotoUrl(
+  photo: PlacePhoto,
   apiKey: string,
 ): Promise<PhotoFetchResult | null> {
+  const mediaUrl = `${PLACES_BASE}/${photo.name}/media?maxHeightPx=1600`;
+  const mediaRes = await fetch(mediaUrl, {
+    redirect: "manual",
+    headers: { "X-Goog-Api-Key": apiKey },
+  });
+  const loc = mediaRes.headers.get("location");
+  if (!loc) return null;
+  const attributions = photo.authorAttributions?.map((a) => a.displayName) ?? [];
+  return { url: loc, attributions };
+}
+
+/**
+ * GET place details; resolve up to {@param maxPhotos} photos to CDN URLs via the media redirect.
+ * Returns an empty array when the place has no photos (does not throw).
+ */
+export async function getEstablishmentPhotos(
+  placeIdOrName: string,
+  apiKey: string,
+  maxPhotos = 3,
+): Promise<PhotoFetchResult[]> {
   const path = placePath(placeIdOrName);
   const detailRes = await fetch(`${PLACES_BASE}/${path}`, {
     headers: {
@@ -233,25 +255,29 @@ export async function getFirstEstablishmentPhoto(
     throw new Error(`Places get place failed ${detailRes.status}: ${errText.slice(0, 500)}`);
   }
 
-  const place = (await detailRes.json()) as {
-    photos?: { name: string; authorAttributions?: { displayName: string }[] }[];
-  };
-  const photo = place.photos?.[0];
-  if (!photo?.name) return null;
+  const place = (await detailRes.json()) as { photos?: PlacePhoto[] };
+  const candidates = (place.photos ?? []).slice(0, maxPhotos);
+  if (candidates.length === 0) return [];
 
-  const mediaUrl = `${PLACES_BASE}/${photo.name}/media?maxHeightPx=1600`;
-  const mediaRes = await fetch(mediaUrl, {
-    redirect: "manual",
-    headers: { "X-Goog-Api-Key": apiKey },
-  });
-
-  const loc = mediaRes.headers.get("location");
-  if (loc) {
-    const attributions = photo.authorAttributions?.map((a) => a.displayName) ?? [];
-    return { url: loc, attributions };
+  const results: PhotoFetchResult[] = [];
+  for (const photo of candidates) {
+    if (!photo.name) continue;
+    const resolved = await resolvePhotoUrl(photo, apiKey);
+    if (resolved) results.push(resolved);
   }
+  return results;
+}
 
-  return null;
+/**
+ * GET place details; resolve first photo to a CDN URL via the photo media redirect.
+ * @deprecated Prefer {@link getEstablishmentPhotos} which supports multiple photos.
+ */
+export async function getFirstEstablishmentPhoto(
+  placeIdOrName: string,
+  apiKey: string,
+): Promise<PhotoFetchResult | null> {
+  const photos = await getEstablishmentPhotos(placeIdOrName, apiKey, 1);
+  return photos[0] ?? null;
 }
 
 export function isUnsplashPlaceholder(url: string | null | undefined): boolean {

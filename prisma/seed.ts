@@ -28,11 +28,11 @@ const prisma = new PrismaClient({ adapter: new PrismaPg(pool) });
  * **Default — create missing, preserve existing:** Ensures tag categories/tags from this file exist.
  * Creates **new** coffee shops (by slug) with full seed data. **Existing** shops are not updated,
  * but **missing `CoffeeShopTag` links** for tags listed in seed are added (manual/extra tags stay).
- * Adds a placeholder image only if the shop has no images. `googlePlaceId` is untouched.
+ * Adds placeholder images only if the shop has no images. `googlePlaceId` is untouched.
  *
  * **Override:** `SEED_OVERWRITE=1` or `SEED_OVERRIDE=1` — full re-sync: update shop rows from seed,
- * replace shop tags with the seed list (removes tags not in seed), refresh placeholder images when
- * applicable, clear `googlePlaceId` for seeded slugs, deprecated-tag cleanup.
+ * replace shop tags with the seed list (removes tags not in seed), clear `googlePlaceId` for seeded slugs,
+ * deprecated-tag cleanup. Images are managed by `pnpm backfill:google-images`, not overwritten here.
  *
  * **Purge (optional):** `SEED_PURGE_ORPHANS=1` — delete shops not in the seed list (or wrong city/state).
  */
@@ -46,6 +46,8 @@ type WeekHours = {
   saturday: { open: string; close: string };
   sunday: { open: string; close: string };
 };
+
+type BusyHourBucket = { label: string; level: number };
 
 const caribouTheGroveHours: WeekHours = {
   monday: { open: "06:00", close: "20:00" },
@@ -161,6 +163,7 @@ type SeedShop = {
   phone?: string | null;
   websiteUrl?: string | null;
   tags: string[];
+  busyHours: BusyHourBucket[];
   wifiQuality?: number | null;
   noiseLevel?: number | null;
   outletAvailability?: number | null;
@@ -189,6 +192,7 @@ function shopDataFromSeed(shop: SeedShop) {
     latitude: shop.latitude,
     longitude: shop.longitude,
     hours: shop.hours as object,
+    busyHours: shop.busyHours as object,
     addressLine1: shop.addressLine1,
     postalCode: shop.postalCode,
     description: shop.description ?? null,
@@ -242,10 +246,9 @@ async function main() {
 
     { name: "WiFi", slug: "wifi", categoryId: amenities.id },
     { name: "Outlets", slug: "outlets", categoryId: amenities.id },
-    { name: "Parking Easy", slug: "easy-parking", categoryId: amenities.id },
+    { name: "Parking", slug: "parking", categoryId: amenities.id },
     { name: "Food", slug: "food", categoryId: amenities.id },
     { name: "Public bathroom", slug: "public-bathroom", categoryId: amenities.id },
-
   ];
 
   const tags: Record<string, string> = {};
@@ -266,17 +269,9 @@ async function main() {
         continue;
       }
       await prisma.coffeeShopTag.upsert({
-        where: {
-          coffeeShopId_tagId: {
-            coffeeShopId,
-            tagId,
-          },
-        },
+        where: { coffeeShopId_tagId: { coffeeShopId, tagId } },
         update: {},
-        create: {
-          coffeeShopId,
-          tagId,
-        },
+        create: { coffeeShopId, tagId },
       });
     }
   }
@@ -296,7 +291,17 @@ async function main() {
       phone: "+17636570919",
       websiteUrl: "https://dailydosemn.com/",
       description: "Locally owned cafe; espresso, pastries, breakfast sandwiches.",
-      tags: ["cozy", "wifi", "quiet", "calm", "outlets", "minimalist", "food", "easy-parking", "public-bathroom", "modern"],
+      tags: ["cozy", "wifi", "quiet", "calm", "outlets", "minimalist", "food", "parking", "public-bathroom", "modern"],
+      busyHours: [
+        { label: "7A", level: 0.35 },
+        { label: "8A", level: 0.80 },
+        { label: "9A", level: 0.95 },
+        { label: "10A", level: 0.75 },
+        { label: "11A", level: 0.55 },
+        { label: "12P", level: 0.45 },
+        { label: "1P", level: 0.30 },
+        { label: "2P", level: 0.15 },
+      ],
       wifiQuality: 4,
       noiseLevel: 3,
       outletAvailability: 3,
@@ -319,7 +324,16 @@ async function main() {
       phone: "+17634243866",
       websiteUrl: "https://www.kingdomcoffeemn.com/",
       description: "Specialty coffee roaster & cafe at Main St & Arbor Lakes (former Dunn Bros site).",
-      tags: ["modern", "wifi", "cozy", "calm", "easy-parking", "minimalist", "outlets", "food", "public-bathroom", "quiet"],
+      tags: ["modern", "wifi", "cozy", "calm", "parking", "minimalist", "outlets", "food", "public-bathroom", "quiet"],
+      busyHours: [
+        { label: "6A", level: 0.20 },
+        { label: "8A", level: 0.75 },
+        { label: "10A", level: 0.90 },
+        { label: "12P", level: 0.65 },
+        { label: "2P", level: 0.50 },
+        { label: "4P", level: 0.55 },
+        { label: "6P", level: 0.40 },
+      ],
       wifiQuality: 4,
       noiseLevel: 4,
       outletAvailability: 4,
@@ -343,7 +357,14 @@ async function main() {
       websiteUrl: "https://www.coffeeshopmaplegrove.com/",
       description:
         "Locally owned coffee shop; espresso, cold brew, crepes, and bakery items — not a full-service restaurant.",
-      tags: ["cozy", "wifi", "calm", "quiet", "minimalist", "food", "public-bathroom", "easy-parking", "modern"],
+      tags: ["cozy", "wifi", "calm", "quiet", "minimalist", "food", "public-bathroom", "parking", "modern"],
+      busyHours: [
+        { label: "8A", level: 0.70 },
+        { label: "10A", level: 0.60 },
+        { label: "12P", level: 0.55 },
+        { label: "2P", level: 0.40 },
+        { label: "4P", level: 0.30 },
+      ],
       wifiQuality: 4,
       noiseLevel: 3,
       ratingAvg: 4.5,
@@ -363,7 +384,16 @@ async function main() {
       phone: "+16124263391",
       websiteUrl: "https://locations.cariboucoffee.com/us/mn/maple-grove/9805-maple-grove-parkway",
       description: "Closest Caribou to Arbor Lakes Pkwy; drive-thru & indoor seating.",
-      tags: ["wifi", "easy-parking", "food", "public-bathroom", "cozy", "calm", "quiet", "modern"],
+      tags: ["wifi", "parking", "food", "public-bathroom", "cozy", "calm", "quiet", "modern"],
+      busyHours: [
+        { label: "6A", level: 0.40 },
+        { label: "8A", level: 0.90 },
+        { label: "10A", level: 0.75 },
+        { label: "12P", level: 0.65 },
+        { label: "2P", level: 0.45 },
+        { label: "4P", level: 0.50 },
+        { label: "6P", level: 0.35 },
+      ],
       wifiQuality: 4,
       noiseLevel: 3,
       ratingAvg: 4.3,
@@ -383,7 +413,17 @@ async function main() {
       phone: "+17634650012",
       websiteUrl: "https://www.starbucks.com/store-locator",
       description: "Arbor Lakes area; Hemlock & Elm Creek Pkwy.",
-      tags: ["wifi", "outlets", "quiet", "calm", "minimalist", "food", "easy-parking", "public-bathroom", "cozy", "modern"],
+      tags: ["wifi", "outlets", "quiet", "calm", "minimalist", "food", "parking", "public-bathroom", "cozy", "modern"],
+      busyHours: [
+        { label: "6A", level: 0.60 },
+        { label: "8A", level: 0.95 },
+        { label: "10A", level: 0.80 },
+        { label: "12P", level: 0.75 },
+        { label: "2P", level: 0.65 },
+        { label: "4P", level: 0.70 },
+        { label: "6P", level: 0.55 },
+        { label: "8P", level: 0.30 },
+      ],
       wifiQuality: 4,
       noiseLevel: 3,
       outletAvailability: 3,
@@ -403,7 +443,15 @@ async function main() {
       hours: brueggersHours,
       phone: "+17635596968",
       websiteUrl: "https://www.brueggers.com/",
-      tags: ["cozy", "wifi", "easy-parking", "food", "public-bathroom"],
+      tags: ["cozy", "wifi", "parking", "food", "public-bathroom"],
+      busyHours: [
+        { label: "6A", level: 0.55 },
+        { label: "8A", level: 0.85 },
+        { label: "10A", level: 0.65 },
+        { label: "12P", level: 0.70 },
+        { label: "2P", level: 0.35 },
+        { label: "4P", level: 0.20 },
+      ],
       wifiQuality: 3,
       noiseLevel: 3,
       ratingAvg: 4.2,
@@ -422,7 +470,15 @@ async function main() {
       hours: dunkinTypicalHours,
       phone: "+17632735640",
       websiteUrl: "https://locations.dunkindonuts.com/en/mn/maple-grove",
-      tags: ["wifi", "easy-parking", "food", "public-bathroom"],
+      tags: ["wifi", "parking", "food", "public-bathroom"],
+      busyHours: [
+        { label: "5A", level: 0.45 },
+        { label: "7A", level: 0.90 },
+        { label: "9A", level: 0.70 },
+        { label: "11A", level: 0.45 },
+        { label: "1P", level: 0.30 },
+        { label: "3P", level: 0.20 },
+      ],
       wifiQuality: 3,
       noiseLevel: 2,
       ratingAvg: 4.0,
@@ -443,7 +499,14 @@ async function main() {
       websiteUrl: "https://maplegrovebread.com/",
       description:
         "Bakery cafe; coffee, sandwiches, and fresh bread — Grove Square. Franchise hours vary (often closed Monday); confirm before visiting.",
-      tags: ["cozy", "wifi", "calm", "quiet", "minimalist", "food", "public-bathroom", "easy-parking"],
+      tags: ["cozy", "wifi", "calm", "quiet", "minimalist", "food", "public-bathroom", "parking"],
+      busyHours: [
+        { label: "7A", level: 0.55 },
+        { label: "9A", level: 0.80 },
+        { label: "11A", level: 0.75 },
+        { label: "1P", level: 0.55 },
+        { label: "3P", level: 0.25 },
+      ],
       wifiQuality: 3,
       noiseLevel: 3,
       ratingAvg: 4.5,
@@ -463,7 +526,14 @@ async function main() {
       phone: "+16122082889",
       websiteUrl: "https://www.hinterlandmn.com/",
       description: "Local roastery & retail; beans and espresso drinks.",
-      tags: ["modern", "calm", "wifi", "outlets", "quiet", "minimalist", "food", "easy-parking", "public-bathroom", "cozy"],
+      tags: ["modern", "calm", "wifi", "outlets", "quiet", "minimalist", "food", "parking", "public-bathroom", "cozy"],
+      busyHours: [
+        { label: "8A", level: 0.40 },
+        { label: "10A", level: 0.65 },
+        { label: "12P", level: 0.55 },
+        { label: "2P", level: 0.45 },
+        { label: "4P", level: 0.30 },
+      ],
       wifiQuality: 3,
       noiseLevel: 3,
       outletAvailability: 3,
@@ -484,7 +554,17 @@ async function main() {
       phone: "+17632024009",
       websiteUrl: "https://uffdadonuts.com/",
       description: "Family-owned donut shop with espresso, smoothies, and sandwiches — Grove Square (next to Great Harvest).",
-      tags: ["cozy", "wifi", "easy-parking", "food", "public-bathroom", "calm", "quiet", "minimalist"],
+      tags: ["cozy", "wifi", "parking", "food", "public-bathroom", "calm", "quiet", "minimalist"],
+      busyHours: [
+        { label: "7A", level: 0.65 },
+        { label: "8A", level: 0.90 },
+        { label: "9A", level: 0.80 },
+        { label: "10A", level: 0.55 },
+        { label: "11A", level: 0.40 },
+        { label: "12P", level: 0.45 },
+        { label: "1P", level: 0.30 },
+        { label: "2P", level: 0.20 },
+      ],
       wifiQuality: 3,
       noiseLevel: 3,
       ratingAvg: 4.4,
@@ -524,11 +604,7 @@ async function main() {
         });
         if (!existingImg) {
           await prisma.coffeeShopImage.create({
-            data: {
-              coffeeShopId: existing.id,
-              url: COFFEE_SHOP_PLACEHOLDER_IMAGE_URL,
-              sortOrder: 0,
-            },
+            data: { coffeeShopId: existing.id, url: COFFEE_SHOP_PLACEHOLDER_IMAGE_URL, sortOrder: 0 },
           });
         }
       }
@@ -551,16 +627,7 @@ async function main() {
       });
       if (!existingImg) {
         await prisma.coffeeShopImage.create({
-          data: {
-            coffeeShopId: row.id,
-            url: COFFEE_SHOP_PLACEHOLDER_IMAGE_URL,
-            sortOrder: 0,
-          },
-        });
-      } else if (seedOverwrite) {
-        await prisma.coffeeShopImage.update({
-          where: { id: existingImg.id },
-          data: { url: COFFEE_SHOP_PLACEHOLDER_IMAGE_URL },
+          data: { coffeeShopId: row.id, url: COFFEE_SHOP_PLACEHOLDER_IMAGE_URL, sortOrder: 0 },
         });
       }
     }
@@ -581,11 +648,12 @@ async function main() {
   }
 
   if (seedOverwrite) {
+    // Remove old slug aliases for renamed tags
     const removedTags = await prisma.tag.deleteMany({
-      where: { slug: { in: ["bright", "natural-light"] } },
+      where: { slug: { in: ["bright", "natural-light", "easy-parking"] } },
     });
     if (removedTags.count > 0) {
-      console.log(`   Removed ${removedTags.count} deprecated tag row(s) (bright, natural-light).`);
+      console.log(`   Removed ${removedTags.count} deprecated tag row(s).`);
     }
 
     await prisma.coffeeShop.updateMany({
@@ -597,6 +665,9 @@ async function main() {
   console.log(`✅ Seed complete (${shops.length} shops).`);
   console.log(
     "   Optional: pnpm backfill:google-images -- --replace-placeholders (with GOOGLE_PLACES_API_KEY)",
+  );
+  console.log(
+    "   To apply full re-sync (busyHours, parking tag rename, new images): SEED_OVERRIDE=1 pnpm seed",
   );
 }
 

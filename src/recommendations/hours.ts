@@ -4,6 +4,8 @@ export type OpenNowResult = {
   hoursKnown: boolean;
   /** Today's closing time HH:mm 24h in shop-local interpretation (user TZ for MVP) */
   closesAtToday?: string;
+  /** Today's opening time HH:mm 24h */
+  opensAtToday?: string;
 };
 
 type DayHours = { open: string; close: string };
@@ -103,5 +105,6 @@ export function getOpenNowFromHoursJson(
     isOpenNow: isOpen,
     hoursKnown: true,
     closesAtToday: closeStr,
+    opensAtToday: openStr,
   };
 }
